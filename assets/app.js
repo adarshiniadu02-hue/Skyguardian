@@ -1,594 +1,403 @@
-// ==========================================
-// SKYGUARDIAN
-// ==========================================
+// ==================================================
+// SKYGUARDIAN WEB UI
+// ==================================================
 
-
-// WebUI
 const ui = new WebUI();
 
 
-// Socket.IO
-const socket = io();
+// ==================================================
+// AIRCRAFT DATA
+// ==================================================
+
+const aircraft = {
+
+    ABC123: {
+        altitude: "28,000 ft",
+        speed: "440 kt",
+        heading: "275°",
+        status: "NORMAL"
+    },
+
+    DEF456: {
+        altitude: "32,000 ft",
+        speed: "470 kt",
+        heading: "180°",
+        status: "NORMAL"
+    },
+
+    A1B2C3: {
+        altitude: "12,000 ft",
+        speed: "280 kt",
+        heading: "090°",
+        status: "MONITOR"
+    },
+
+    F4E5D6: {
+        altitude: "22,000 ft",
+        speed: "510 kt",
+        heading: "315°",
+        status: "ANOMALY"
+    },
+
+    B7C8D9: {
+        altitude: "35,000 ft",
+        speed: "460 kt",
+        heading: "040°",
+        status: "NORMAL"
+    }
+
+};
 
 
-// Current aircraft
-let aircraft = [];
-
-
-// Selected aircraft
-let selectedICAO = "ABC123";
-
-
-// ==========================================
-// WEB UI CONNECTION
-// ==========================================
+// ==================================================
+// CONNECT
+// ==================================================
 
 ui.on_connect(() => {
 
-    console.log(
-        "SkyGuardian WebUI connected"
-    );
+    console.log("SkyGuardian Web UI connected");
+
+    buildAircraftTable();
+
+    selectAircraft("ABC123");
 
 });
 
+
+// ==================================================
+// DISCONNECT
+// ==================================================
 
 ui.on_disconnect(() => {
 
-    console.log(
-        "SkyGuardian WebUI disconnected"
-    );
+    console.log("Web UI disconnected");
 
 });
 
 
-// ==========================================
-// RECEIVE AIRCRAFT DATA
-// ==========================================
+// ==================================================
+// SELECT AIRCRAFT
+// ==================================================
 
-socket.on(
-    "aircraft_data",
-    (data) => {
+function selectAircraft(icao) {
 
-        console.log(
-            "Received aircraft data",
-            data
-        );
+    console.log("Selecting aircraft:", icao);
 
-        updateDashboard(data);
+    const data = aircraft[icao];
 
-    }
-);
+    if (!data) {
 
+        console.log("Aircraft not found:", icao);
 
-// ==========================================
-// UPDATE DASHBOARD
-// ==========================================
-
-function updateDashboard(data) {
-
-
-    aircraft =
-        data.aircraft || [];
-
-
-    selectedICAO =
-        data.selected_icao ||
-        selectedICAO;
-
-
-    // --------------------------------------
-    // Summary
-    // --------------------------------------
-
-    document.getElementById(
-        "aircraftCount"
-    ).textContent =
-        data.aircraft_count;
-
-
-    document.getElementById(
-        "anomalyCount"
-    ).textContent =
-        data.anomaly_count;
-
-
-    // --------------------------------------
-    // Selected aircraft
-    // --------------------------------------
-
-    const selected =
-        aircraft.find(
-            plane =>
-                plane.icao ===
-                selectedICAO
-        );
-
-
-    if (selected) {
-
-        updateSelectedAircraft(
-            selected
-        );
-
+        return;
     }
 
 
-    // --------------------------------------
-    // Radar
-    // --------------------------------------
-
-    aircraft.forEach(
-        (plane, index) => {
-
-            updateRadarPlane(
-                plane,
-                index
-            );
-
-        }
-    );
-
-
-    // --------------------------------------
-    // Table
-    // --------------------------------------
-
-    updateTable();
-
-}
-
-
-// ==========================================
-// UPDATE SELECTED AIRCRAFT
-// ==========================================
-
-function updateSelectedAircraft(
-    plane
-) {
-
+    // ----------------------------------------------
+    // Update selected aircraft
+    // ----------------------------------------------
 
     document.getElementById(
         "selectedAircraft"
-    ).textContent =
-        plane.icao;
+    ).textContent = icao;
 
 
     document.getElementById(
         "icao"
-    ).textContent =
-        plane.icao;
+    ).textContent = icao;
 
 
     document.getElementById(
         "altitude"
-    ).textContent =
-        `${Math.round(
-            plane.altitude
-        ).toLocaleString()} ft`;
+    ).textContent = data.altitude;
 
 
     document.getElementById(
         "speed"
-    ).textContent =
-        `${Math.round(
-            plane.speed
-        )} kt`;
+    ).textContent = data.speed;
 
 
     document.getElementById(
         "heading"
-    ).textContent =
-        `${Math.round(
-            plane.heading
-        )}°`;
+    ).textContent = data.heading;
 
 
-    const status =
-        document.getElementById(
-            "flightStatus"
-        );
+    // ----------------------------------------------
+    // Update status
+    // ----------------------------------------------
+
+    const statusElement =
+        document.getElementById("flightStatus");
 
 
-    status.textContent =
-        `● ${plane.status}`;
+    statusElement.textContent =
+        "● " + data.status;
 
 
-    status.className =
-        "";
+    statusElement.className = "";
 
 
-    if (
-        plane.status ===
-        "NORMAL"
-    ) {
+    if (data.status === "NORMAL") {
 
-        status.classList.add(
-            "normal"
+        statusElement.classList.add(
+            "status-normal"
         );
 
     }
 
-    else if (
-        plane.status ===
-        "ANOMALY"
-    ) {
+    else if (data.status === "MONITOR") {
 
-        status.classList.add(
-            "anomaly"
+        statusElement.classList.add(
+            "status-monitor"
         );
 
     }
 
     else {
 
-        status.classList.add(
-            "monitor"
+        statusElement.classList.add(
+            "status-anomaly"
         );
 
     }
 
 
-    // --------------------------------------
-    // Risk
-    // --------------------------------------
+    // ----------------------------------------------
+    // Highlight radar aircraft
+    // ----------------------------------------------
 
-    const risk =
+    document
+        .querySelectorAll(".aircraft")
+        .forEach(plane => {
+
+            plane.classList.remove("selected");
+
+        });
+
+
+    const selectedPlane =
         document.getElementById(
-            "riskScore"
+            getPlaneId(icao)
         );
 
 
-    risk.textContent =
-        plane.risk;
+    if (selectedPlane) {
 
-
-    const level =
-        document.getElementById(
-            "riskLevel"
-        );
-
-
-    if (plane.risk >= 70) {
-
-        level.textContent =
-            "HIGH";
-
-        level.className =
-            "small-label risk-high";
-
-    }
-
-    else if (plane.risk >= 40) {
-
-        level.textContent =
-            "MEDIUM";
-
-        level.className =
-            "small-label risk-medium";
-
-    }
-
-    else {
-
-        level.textContent =
-            "LOW";
-
-        level.className =
-            "small-label risk-low";
-
-    }
-
-}
-
-
-// ==========================================
-// UPDATE RADAR
-// ==========================================
-
-function updateRadarPlane(
-    plane,
-    index
-) {
-
-
-    const element =
-        document.getElementById(
-            `plane${index}`
-        );
-
-
-    if (!element) {
-
-        console.warn(
-            "Radar element missing:",
-            index
-        );
-
-        return;
-
-    }
-
-
-    // Position
-    element.style.left =
-        `${plane.x}%`;
-
-    element.style.top =
-        `${plane.y}%`;
-
-
-    // Status class
-
-    element.classList.remove(
-        "normal",
-        "monitor",
-        "anomaly",
-        "selected"
-    );
-
-
-    element.classList.add(
-        plane.status.toLowerCase()
-    );
-
-
-    // Selected
-
-    if (
-        plane.icao ===
-        selectedICAO
-    ) {
-
-        element.classList.add(
+        selectedPlane.classList.add(
             "selected"
         );
 
     }
 
 
-    // --------------------------------------
-    // Click
-    // --------------------------------------
+    // ----------------------------------------------
+    // Highlight table row
+    // ----------------------------------------------
 
-    element.onclick =
-        function () {
+    document
+        .querySelectorAll("#aircraftTable tr")
+        .forEach(row => {
 
-            selectAircraft(
-                plane.icao
+            row.classList.remove(
+                "selected-row"
             );
 
-        };
-
-}
+        });
 
 
-// ==========================================
-// SELECT AIRCRAFT
-// ==========================================
-
-function selectAircraft(
-    icao
-) {
-
-
-    console.log(
-        "✈ Selecting:",
-        icao
-    );
-
-
-    selectedICAO =
-        icao;
-
-
-    // --------------------------------------
-    // Find aircraft
-    // --------------------------------------
-
-    const plane =
-        aircraft.find(
-            p =>
-                p.icao ===
-                icao
+    const row =
+        document.querySelector(
+            `[data-icao="${icao}"]`
         );
 
 
-    if (plane) {
+    if (row) {
 
-        updateSelectedAircraft(
-            plane
+        row.classList.add(
+            "selected-row"
         );
 
     }
 
 
-    // --------------------------------------
-    // Update radar
-    // --------------------------------------
+    // ----------------------------------------------
+    // SEND SELECTION TO PYTHON
+    // ----------------------------------------------
 
-    aircraft.forEach(
-        (p, index) => {
-
-            const element =
-                document.getElementById(
-                    `plane${index}`
-                );
-
-
-            if (!element) {
-
-                return;
-
-            }
-
-
-            element.classList.remove(
-                "selected"
-            );
-
-
-            if (
-                p.icao === icao
-            ) {
-
-                element.classList.add(
-                    "selected"
-                );
-
-            }
-
-        }
+    console.log(
+        "Sending selection to Python:",
+        icao
     );
 
 
-    // --------------------------------------
-    // Update table
-    // --------------------------------------
-
-    updateTable();
-
-
-    // --------------------------------------
-    // SEND TO PYTHON
-    // --------------------------------------
-
-    socket.emit(
-        "aircraft_selected",
+    ui.send_message(
+        "select_aircraft",
         {
             icao: icao
         }
     );
 
+}
 
-    console.log(
-        "Sent aircraft_selected:",
-        icao
-    );
+
+// ==================================================
+// MAP ICAO → RADAR PLANE
+// ==================================================
+
+function getPlaneId(icao) {
+
+    const map = {
+
+        "ABC123": "plane0",
+
+        "DEF456": "plane1",
+
+        "A1B2C3": "plane2",
+
+        "F4E5D6": "plane3",
+
+        "B7C8D9": "plane4"
+
+    };
+
+    return map[icao];
 
 }
 
 
-// ==========================================
-// UPDATE TABLE
-// ==========================================
+// ==================================================
+// CLICK EVENTS FOR RADAR AIRCRAFT
+// ==================================================
 
-function updateTable() {
+document
+    .querySelectorAll(".aircraft")
+    .forEach(plane => {
+
+        plane.addEventListener(
+            "click",
+            () => {
+
+                const label =
+                    plane.querySelector(
+                        ".aircraft-label"
+                    );
+
+                if (!label) {
+                    return;
+                }
+
+                const icao =
+                    label.textContent.trim();
+
+                selectAircraft(icao);
+
+            }
+        );
+
+    });
 
 
-    const tbody =
+// ==================================================
+// AIRCRAFT TABLE
+// ==================================================
+
+function buildAircraftTable() {
+
+    const table =
         document.getElementById(
             "aircraftTable"
         );
 
 
-    tbody.innerHTML = "";
+    table.innerHTML = "";
 
 
-    aircraft.forEach(
-        plane => {
+    Object.keys(aircraft)
+        .forEach(icao => {
+
+            const data =
+                aircraft[icao];
 
 
             const row =
-                document.createElement(
-                    "tr"
-                );
+                document.createElement("tr");
 
 
-            if (
-                plane.icao ===
-                selectedICAO
-            ) {
-
-                row.classList.add(
-                    "selected-row"
-                );
-
-            }
+            row.setAttribute(
+                "data-icao",
+                icao
+            );
 
 
             row.innerHTML = `
 
-                <td>
-                    <strong>
-                        ${plane.icao}
-                    </strong>
-                </td>
+                <td>${icao}</td>
 
-                <td>
-                    ${Math.round(
-                        plane.altitude
-                    ).toLocaleString()} ft
-                </td>
+                <td>${data.altitude}</td>
 
-                <td>
-                    ${Math.round(
-                        plane.speed
-                    )} kt
-                </td>
+                <td>${data.speed}</td>
 
-                <td>
-                    ${Math.round(
-                        plane.heading
-                    )}°
-                </td>
+                <td>${data.heading}</td>
 
-                <td class="${getStatusClass(
-                    plane.status
-                )}">
-                    ● ${plane.status}
+                <td class="${getStatusClass(data.status)}">
+                    ● ${data.status}
                 </td>
 
             `;
 
 
-            row.onclick =
-                function () {
+            row.addEventListener(
+                "click",
+                () => {
 
-                    selectAircraft(
-                        plane.icao
-                    );
+                    selectAircraft(icao);
 
-                };
-
-
-            tbody.appendChild(
-                row
+                }
             );
 
-        }
-    );
+
+            table.appendChild(row);
+
+        });
 
 }
 
 
-// ==========================================
+// ==================================================
 // STATUS CLASS
-// ==========================================
+// ==================================================
 
-function getStatusClass(
-    status
-) {
+function getStatusClass(status) {
 
-    if (
-        status ===
-        "NORMAL"
-    ) {
+    if (status === "NORMAL") {
 
-        return "normal";
+        return "status-normal";
 
     }
 
+    if (status === "MONITOR") {
 
-    if (
-        status ===
-        "ANOMALY"
-    ) {
-
-        return "anomaly";
+        return "status-monitor";
 
     }
 
-
-    return "monitor";
+    return "status-anomaly";
 
 }
+
+
+// ==================================================
+// RECEIVE CONFIRMATION FROM PYTHON
+// ==================================================
+
+ui.on_message(
+    "aircraft_selected",
+    message => {
+
+        console.log(
+            "Python confirmed:",
+            message
+        );
+
+    }
+);

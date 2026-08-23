@@ -2,268 +2,215 @@ from arduino.app_utils import App, Bridge
 from arduino.app_bricks.web_ui import WebUI
 import time
 
+
+# ==================================================
+# WEB UI
+# ==================================================
+
 ui = WebUI()
 
-connected = False
-selected_icao = "ABC123"
 
-# Simulated aircraft
-aircraft = [
-    {
-        "icao": "ABC123",
-        "altitude": 28000,
-        "speed": 440,
-        "heading": 275,
-        "x": 25,
-        "y": 25,
-        "status": "NORMAL",
-        "risk": 12
+# ==================================================
+# AIRCRAFT DATA
+# ==================================================
+
+aircraft = {
+
+    "ABC123": {
+        "altitude": "28,000 ft",
+        "speed": "440 kt",
+        "heading": "275°",
+        "status": "NORMAL"
     },
-    {
-        "icao": "DEF456",
-        "altitude": 32000,
-        "speed": 470,
-        "heading": 180,
-        "x": 70,
-        "y": 25,
-        "status": "NORMAL",
-        "risk": 8
+
+    "DEF456": {
+        "altitude": "32,000 ft",
+        "speed": "470 kt",
+        "heading": "180°",
+        "status": "NORMAL"
     },
-    {
-        "icao": "A1B2C3",
-        "altitude": 12000,
-        "speed": 280,
-        "heading": 90,
-        "x": 30,
-        "y": 70,
-        "status": "MONITOR",
-        "risk": 42
+
+    "A1B2C3": {
+        "altitude": "12,000 ft",
+        "speed": "280 kt",
+        "heading": "090°",
+        "status": "MONITOR"
     },
-    {
-        "icao": "F4E5D6",
-        "altitude": 22000,
-        "speed": 510,
-        "heading": 315,
-        "x": 72,
-        "y": 65,
-        "status": "ANOMALY",
-        "risk": 82
+
+    "F4E5D6": {
+        "altitude": "22,000 ft",
+        "speed": "510 kt",
+        "heading": "315°",
+        "status": "ANOMALY"
     },
-    {
-        "icao": "B7C8D9",
-        "altitude": 35000,
-        "speed": 460,
-        "heading": 40,
-        "x": 50,
-        "y": 45,
-        "status": "NORMAL",
-        "risk": 15
+
+    "B7C8D9": {
+        "altitude": "35,000 ft",
+        "speed": "460 kt",
+        "heading": "040°",
+        "status": "NORMAL"
     }
-]
+}
 
 
-# ==========================================
-# WEB UI CONNECTION
-# ==========================================
+# ==================================================
+# LED CONTROL
+# ==================================================
 
-def on_connect(client_id):
+def set_led_for_status(status):
 
-    global connected
+    status = status.upper()
 
-    connected = True
-
-    print("Web UI connected")
-
-
-def on_disconnect(client_id):
-
-    global connected
-
-    connected = False
-
-    print("Web UI disconnected")
-
-
-# ==========================================
-# AIRCRAFT SELECTION
-# ==========================================
-
-def on_aircraft_selected(client_id, data):
-
-    global selected_icao
+    print("================================")
+    print("Setting LED for:", status)
 
     try:
 
-        selected_icao = data["icao"]
+        if status == "NORMAL":
 
-        print(
-            f"✈ Selected aircraft: {selected_icao}"
-        )
+            # GREEN
+            Bridge.call(
+                "set_led3_color",
+                0,
+                255,
+                0
+            )
 
-        # Find selected aircraft
-        selected = None
+            print("LED COMMAND SENT: GREEN")
 
-        for plane in aircraft:
+        else:
 
-            if plane["icao"] == selected_icao:
+            # RED
+            Bridge.call(
+                "set_led3_color",
+                255,
+                0,
+                0
+            )
 
-                selected = plane
-                break
-
-        if selected:
-
-            # LED 3:
-            # GREEN = NORMAL
-            # RED = anything else
-
-            if selected["status"] == "NORMAL":
-
-                try:
-
-                    Bridge.call(
-                        "set_led3_color",
-                        0,
-                        255,
-                        0
-                    )
-
-                    print("🟢 LED GREEN")
-
-                except Exception as e:
-
-                    print(
-                        f"LED error: {e}"
-                    )
-
-            else:
-
-                try:
-
-                    Bridge.call(
-                        "set_led3_color",
-                        255,
-                        0,
-                        0
-                    )
-
-                    print("🔴 LED RED")
-
-                except Exception as e:
-
-                    print(
-                        f"LED error: {e}"
-                    )
+            print("LED COMMAND SENT: RED")
 
     except Exception as e:
 
-        print(
-            f"Aircraft selection error: {e}"
+        print("LED ERROR:")
+        print(e)
+
+
+# ==================================================
+# AIRCRAFT SELECTED
+# ==================================================
+
+def on_aircraft_selected(id, message):
+
+    print("================================")
+    print("AIRCRAFT SELECTION RECEIVED")
+    print("ID:", id)
+    print("MESSAGE:", message)
+
+    try:
+
+        icao = message.get("icao")
+
+        if not icao:
+
+            print("ERROR: No ICAO received")
+
+            return
+
+
+        if icao not in aircraft:
+
+            print("ERROR: Unknown aircraft:", icao)
+
+            return
+
+
+        selected = aircraft[icao]
+
+        status = selected["status"]
+
+
+        print("Selected aircraft:", icao)
+
+        print("Status:", status)
+
+
+        # ==========================================
+        # CONTROL UNO Q LED
+        # ==========================================
+
+        set_led_for_status(status)
+
+
+        # ==========================================
+        # SEND CONFIRMATION TO WEB UI
+        # ==========================================
+
+        ui.send_message(
+            "aircraft_selected",
+            {
+                "icao": icao,
+                "altitude": selected["altitude"],
+                "speed": selected["speed"],
+                "heading": selected["heading"],
+                "status": status
+            }
         )
 
 
-# ==========================================
-# MOVE AIRCRAFT
-# ==========================================
+    except Exception as e:
 
-def move_aircraft():
+        print("AIRCRAFT SELECTION ERROR:")
 
-    # Simple deterministic movement
-
-    aircraft[0]["x"] += 0.25
-    aircraft[1]["x"] -= 0.20
-    aircraft[2]["y"] -= 0.18
-    aircraft[3]["x"] -= 0.15
-    aircraft[4]["y"] += 0.15
-
-    # Keep aircraft inside radar
-
-    for plane in aircraft:
-
-        if plane["x"] > 88:
-            plane["x"] = 12
-
-        if plane["x"] < 12:
-            plane["x"] = 88
-
-        if plane["y"] > 88:
-            plane["y"] = 12
-
-        if plane["y"] < 12:
-            plane["y"] = 88
+        print(e)
 
 
-# ==========================================
-# SEND DATA TO WEB UI
-# ==========================================
+# ==================================================
+# WEB UI CONNECTION
+# ==================================================
 
-def send_aircraft_data():
+def on_connect(connection):
 
-    anomaly_count = sum(
-        1
-        for plane in aircraft
-        if plane["status"] == "ANOMALY"
-    )
-
-    selected = None
-
-    for plane in aircraft:
-
-        if plane["icao"] == selected_icao:
-
-            selected = plane
-            break
-
-    risk = 0
-
-    if selected:
-
-        risk = selected["risk"]
-
-    ui.send_message(
-        "aircraft_data",
-        {
-            "aircraft": aircraft,
-            "aircraft_count": len(aircraft),
-            "anomaly_count": anomaly_count,
-            "selected_icao": selected_icao,
-            "risk": risk
-        }
-    )
+    print("WEB UI CONNECTED")
 
 
-# ==========================================
-# MAIN LOOP
-# ==========================================
+def on_disconnect(connection):
 
-def loop():
+    print("WEB UI DISCONNECTED")
 
-    if connected:
-
-        move_aircraft()
-
-        send_aircraft_data()
-
-    time.sleep(1)
-
-
-# ==========================================
-# REGISTER CALLBACKS
-# ==========================================
 
 ui.on_connect(on_connect)
 
 ui.on_disconnect(on_disconnect)
 
+
+# ==================================================
+# WEB UI MESSAGE
+# ==================================================
+
 ui.on_message(
-    "aircraft_selected",
+    "select_aircraft",
     on_aircraft_selected
 )
 
 
-# ==========================================
-# START APP
-# ==========================================
+# ==================================================
+# MAIN LOOP
+# ==================================================
 
-print("SkyGuardian started")
+def loop():
 
-App.run(user_loop=loop)
+    time.sleep(1)
+
+
+# ==================================================
+# START
+# ==================================================
+
+print("================================")
+print("SKYGUARDIAN STARTED")
+print("================================")
+
+App.run(
+    user_loop=loop
+)

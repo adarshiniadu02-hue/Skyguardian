@@ -6,7 +6,9 @@ SECTIONS
 {
     /* Read-only data WITH relocations - will be copied to RAM by LLEXT */
     .rodata : {
+        *(.rodata._ZN12_GLOBAL__N_1L11arduino_pwmE)
         *(.rodata._ZN6zephyr7arduinoL11pinctrl_mapE)
+        *(.rodata._ZN6zephyr7arduinoL12arduino_pinsE)
         *(.rodata._ZN6zephyr7arduinoL35__pinctrl_states__device_dts_ord_17E)
         *(.rodata._ZN6zephyr7arduinoL35__pinctrl_states__device_dts_ord_25E)
         *(.rodata._ZN6zephyr7arduinoL35__pinctrl_states__device_dts_ord_29E)
@@ -40,16 +42,21 @@ SECTIONS
         *(.rodata._ZN6zephyr7arduinoL40__pinctrl_dev_config__device_dts_ord_117E)
         *(.rodata._ZN6zephyr7arduinoL40__pinctrl_dev_config__device_dts_ord_120E)
         *(.rodata._ZTV13BridgeMonitorILj512EE)
+        *(.rodata._ZTV15SerialTransport)
+        *(.rodata._ZTV18RpcFunctionWrapperISt8functionIFviiiEEE)
         *(.rodata._ZTVN7arduino12ZephyrSerialE)
     }
 
     /* Read-only data WITHOUT relocations - kept in flash by LLEXT */
     .llext.rodata.noreloc : {
         *(.rodata._ZN10RpcDecoderILj1024EE12get_responseIN7arduino7msgpack6object5nil_tEEEbjRT_R8RpcError.str1.1)
+        *(.rodata._ZN10RpcDecoderILj1024EE12get_responseIbEEbjRT_R8RpcError.str1.1)
         *(.rodata._ZN11BridgeClass11update_safeEv.str1.1)
+        *(.rodata._ZN12_GLOBAL__N_1L16arduino_pwm_pinsE)
         *(.rodata._ZN13BridgeMonitorILj512EE5_readEj.str1.1)
         *(.rodata._ZN13BridgeMonitorILj512EE5writeEPKhj.str1.1)
         *(.rodata._ZN13BridgeMonitorILj512EEcvbEv.str1.1)
+        *(.rodata._ZN18RpcFunctionWrapperISt8functionIFviiiEEEclERN7arduino7msgpack8UnpackerERNS5_6PackerE.str1.1)
         *(.rodata._ZN6zephyr7arduinoL41__pinctrl_state_pins_0__device_dts_ord_17E)
         *(.rodata._ZN6zephyr7arduinoL41__pinctrl_state_pins_0__device_dts_ord_25E)
         *(.rodata._ZN6zephyr7arduinoL41__pinctrl_state_pins_0__device_dts_ord_29E)
@@ -82,10 +89,11 @@ SECTIONS
         *(.rodata._ZN6zephyr7arduinoL42__pinctrl_state_pins_2__device_dts_ord_111E)
         *(.rodata._ZN6zephyr7arduinoL42__pinctrl_state_pins_2__device_dts_ord_117E)
         *(.rodata._ZN6zephyr7arduinoL42__pinctrl_state_pins_2__device_dts_ord_120E)
+        *(.rodata._ZN7RpcCallIJEE6resultIbEEbRT_.str1.1)
         *(.rodata._ZN7arduino7msgpack6object3extC2EaPKhj.str1.1)
-        *(.rodata._ZN7arduino7msgpack8Unpacker11deserializeINS_6StringEJEEEbRT_DpOT0_.str1.1)
         *(.rodata._ZN8RpcErrorC2Ev.str1.1)
         *(.rodata._ZNSt6vectorIjSaIjEE17_M_realloc_insertIJRjEEEvN9__gnu_cxx17__normal_iteratorIPjS1_EEDpOT_.str1.1)
+        *(.rodata.setup.str1.1)
         *(.rodata.str1.1)
     }
 
