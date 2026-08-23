@@ -1,0 +1,9 @@
+# ignore app cache folder
+
+__pycache__/
+*.pyc
+.env
+.venv/
+venv/
+node_modules/
+.DS_Store

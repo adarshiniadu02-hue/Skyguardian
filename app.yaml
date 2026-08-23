@@ -1,0 +1,7 @@
+name: skyguardian2
+description: ""
+ports: []
+bricks:
+- arduino:web_ui: {}
+- arduino:air_quality_monitoring: {}
+icon: 😀

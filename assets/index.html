@@ -1,0 +1,1268 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+>
+
+<title>SkyGuardian</title>
+
+<style>
+
+/* =====================================================
+   SKYGUARDIAN DARK UI
+===================================================== */
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    min-height: 100%;
+}
+
+body {
+    background: #050b14;
+    color: #e8f1fb;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+
+/* =====================================================
+   HEADER
+===================================================== */
+
+header {
+    height: 82px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 0 30px;
+
+    border-bottom: 1px solid #1d2b3d;
+
+    background: #080f1b;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.logo-icon {
+    font-size: 28px;
+}
+
+.logo-text {
+    font-size: 25px;
+    font-weight: 700;
+    letter-spacing: 2px;
+}
+
+.subtitle {
+    margin-top: 5px;
+    color: #71869e;
+    font-size: 12px;
+}
+
+.system {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    color: #22c55e;
+    font-size: 11px;
+    letter-spacing: 1px;
+}
+
+.system-dot {
+    width: 8px;
+    height: 8px;
+
+    border-radius: 50%;
+
+    background: #22c55e;
+
+    box-shadow:
+        0 0 12px #22c55e;
+}
+
+
+/* =====================================================
+   PAGE
+===================================================== */
+
+.container {
+    padding: 20px 30px 30px;
+}
+
+
+/* =====================================================
+   SUMMARY CARDS
+===================================================== */
+
+.cards {
+    display: grid;
+
+    grid-template-columns:
+        repeat(3, 1fr);
+
+    gap: 16px;
+
+    margin-bottom: 20px;
+}
+
+.card {
+    min-height: 105px;
+
+    padding: 18px 20px;
+
+    border:
+        1px solid #223248;
+
+    border-radius: 10px;
+
+    background:
+        linear-gradient(
+            145deg,
+            #0c1725,
+            #08111c
+        );
+}
+
+.card-label {
+    color: #71869e;
+
+    font-size: 10px;
+
+    letter-spacing: 2px;
+}
+
+.card-number {
+    margin-top: 7px;
+
+    font-size: 34px;
+
+    font-weight: 700;
+}
+
+.card-sub {
+    margin-top: 3px;
+
+    color: #52677f;
+
+    font-size: 9px;
+
+    letter-spacing: 1px;
+}
+
+
+/* =====================================================
+   MAIN GRID
+===================================================== */
+
+.main-grid {
+
+    display: grid;
+
+    grid-template-columns:
+        minmax(0, 2fr)
+        minmax(300px, 1fr);
+
+    gap: 18px;
+}
+
+
+/* =====================================================
+   PANELS
+===================================================== */
+
+.panel {
+
+    border:
+        1px solid #223248;
+
+    border-radius: 10px;
+
+    background: #08111c;
+
+    overflow: hidden;
+}
+
+.panel-header {
+
+    height: 40px;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    padding: 0 16px;
+
+    border-bottom:
+        1px solid #223248;
+
+    color: #8298b0;
+
+    font-size: 10px;
+
+    letter-spacing: 2px;
+}
+
+.live {
+    color: #22c55e;
+
+    font-size: 9px;
+
+    letter-spacing: 1px;
+}
+
+
+/* =====================================================
+   RADAR
+===================================================== */
+
+.radar-container {
+
+    height: 520px;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    position: relative;
+
+    overflow: hidden;
+
+    background:
+        radial-gradient(
+            circle,
+            #092321 0%,
+            #06151a 35%,
+            #050b14 75%
+        );
+}
+
+
+/* Radar circle */
+
+.radar {
+
+    position: relative;
+
+    width: 430px;
+
+    height: 430px;
+
+    border:
+        2px solid
+        rgba(34, 197, 94, 0.65);
+
+    border-radius: 50%;
+
+    background:
+        radial-gradient(
+            circle,
+            rgba(22, 93, 76, 0.22),
+            rgba(4, 13, 20, 0.9)
+        );
+
+    box-shadow:
+        0 0 30px
+        rgba(34, 197, 94, 0.12),
+        inset 0 0 40px
+        rgba(34, 197, 94, 0.05);
+
+    overflow: hidden;
+}
+
+
+/* Rings */
+
+.ring {
+
+    position: absolute;
+
+    left: 50%;
+    top: 50%;
+
+    transform:
+        translate(-50%, -50%);
+
+    border:
+        1px solid
+        rgba(70, 200, 150, 0.28);
+
+    border-radius: 50%;
+}
+
+.ring-1 {
+    width: 25%;
+    height: 25%;
+}
+
+.ring-2 {
+    width: 50%;
+    height: 50%;
+}
+
+.ring-3 {
+    width: 75%;
+    height: 75%;
+}
+
+
+/* Crosshair */
+
+.cross-h {
+    position: absolute;
+
+    left: 0;
+    right: 0;
+    top: 50%;
+
+    height: 1px;
+
+    background:
+        rgba(70, 200, 150, 0.25);
+}
+
+.cross-v {
+    position: absolute;
+
+    top: 0;
+    bottom: 0;
+    left: 50%;
+
+    width: 1px;
+
+    background:
+        rgba(70, 200, 150, 0.25);
+}
+
+
+/* Diagonal lines */
+
+.diagonal-1,
+.diagonal-2 {
+
+    position: absolute;
+
+    width: 100%;
+    height: 1px;
+
+    top: 50%;
+    left: 0;
+
+    background:
+        rgba(70, 200, 150, 0.12);
+}
+
+.diagonal-1 {
+    transform: rotate(45deg);
+}
+
+.diagonal-2 {
+    transform: rotate(-45deg);
+}
+
+
+/* Radar sweep */
+
+.sweep {
+
+    position: absolute;
+
+    width: 50%;
+    height: 50%;
+
+    left: 50%;
+    top: 50%;
+
+    transform-origin: 0 0;
+
+    background:
+        conic-gradient(
+            from 0deg,
+            rgba(34,197,94,0.28),
+            rgba(34,197,94,0.05),
+            transparent 45deg
+        );
+
+    animation:
+        radarSweep 3s linear infinite;
+}
+
+@keyframes radarSweep {
+
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+
+/* Center */
+
+.radar-center {
+
+    position: absolute;
+
+    left: 50%;
+    top: 50%;
+
+    transform:
+        translate(-50%, -50%);
+
+    width: 9px;
+    height: 9px;
+
+    border-radius: 50%;
+
+    background: #22c55e;
+
+    box-shadow:
+        0 0 12px #22c55e;
+}
+
+
+/* =====================================================
+   AIRCRAFT
+===================================================== */
+
+.aircraft {
+
+    position: absolute;
+
+    z-index: 20;
+
+    transform:
+        translate(-50%, -50%);
+
+    text-align: center;
+
+    cursor: pointer;
+
+    transition:
+        left 1s linear,
+        top 1s linear;
+
+    user-select: none;
+}
+
+.aircraft-icon {
+
+    font-size: 23px;
+
+    line-height: 25px;
+
+}
+
+.aircraft-label {
+
+    display: block;
+
+    margin-top: 2px;
+
+    padding:
+        2px 5px;
+
+    border-radius: 3px;
+
+    background:
+        rgba(0,0,0,0.75);
+
+    font-size: 8px;
+
+    letter-spacing: 0.5px;
+}
+
+
+/* Normal */
+
+.aircraft.normal {
+    color: #22c55e;
+}
+
+.aircraft.normal .aircraft-icon {
+    text-shadow:
+        0 0 12px #22c55e;
+}
+
+
+/* Monitor */
+
+.aircraft.monitor {
+    color: #f59e0b;
+}
+
+.aircraft.monitor .aircraft-icon {
+    text-shadow:
+        0 0 12px #f59e0b;
+}
+
+
+/* Anomaly */
+
+.aircraft.anomaly {
+    color: #ef4444;
+}
+
+.aircraft.anomaly .aircraft-icon {
+    text-shadow:
+        0 0 14px #ef4444;
+}
+
+
+/* Selected */
+
+.aircraft.selected {
+    z-index: 50;
+}
+
+.aircraft.selected .aircraft-icon {
+
+    font-size: 34px;
+
+    text-shadow:
+        0 0 8px #fff,
+        0 0 20px currentColor,
+        0 0 35px currentColor;
+}
+
+.aircraft.selected .aircraft-label {
+
+    border:
+        1px solid currentColor;
+
+}
+
+
+/* =====================================================
+   DETAILS
+===================================================== */
+
+.details {
+
+    min-height: 560px;
+}
+
+.selected-box {
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    padding: 18px;
+
+    background:
+        rgba(56,189,248,0.04);
+
+    border-bottom:
+        1px solid #1b293a;
+}
+
+.selected-box span {
+
+    color: #667c94;
+
+    font-size: 10px;
+
+    letter-spacing: 1px;
+}
+
+.selected-box strong {
+
+    color: #38bdf8;
+
+    font-size: 14px;
+}
+
+
+.detail-row {
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    padding:
+        18px;
+
+    border-bottom:
+        1px solid #172536;
+}
+
+.detail-row span {
+
+    color: #71859d;
+
+    font-size: 10px;
+
+    letter-spacing: 1px;
+}
+
+.detail-row strong {
+
+    font-size: 13px;
+}
+
+
+/* Status */
+
+.status-normal {
+    color: #22c55e;
+}
+
+.status-monitor {
+    color: #f59e0b;
+}
+
+.status-anomaly {
+    color: #ef4444;
+}
+
+
+.help {
+
+    margin-top: 15px;
+
+    padding: 15px;
+
+    color: #536981;
+
+    font-size: 10px;
+
+    line-height: 1.6;
+}
+
+
+/* =====================================================
+   TABLE
+===================================================== */
+
+.table-panel {
+
+    margin-top: 18px;
+}
+
+table {
+
+    width: 100%;
+
+    border-collapse:
+        collapse;
+}
+
+th {
+
+    padding:
+        13px 15px;
+
+    color: #62778f;
+
+    text-align: left;
+
+    font-size: 9px;
+
+    letter-spacing: 1.5px;
+}
+
+td {
+
+    padding:
+        13px 15px;
+
+    border-top:
+        1px solid #182536;
+
+    font-size: 12px;
+}
+
+tbody tr {
+
+    cursor: pointer;
+
+    transition:
+        background 0.15s;
+}
+
+tbody tr:hover {
+
+    background:
+        rgba(56,189,248,0.05);
+}
+
+tbody tr.selected-row {
+
+    background:
+        rgba(56,189,248,0.09);
+
+    box-shadow:
+        inset 3px 0 #38bdf8;
+}
+
+
+/* =====================================================
+   FOOTER
+===================================================== */
+
+footer {
+
+    margin-top: 18px;
+
+    padding: 14px;
+
+    border-top:
+        1px solid #1b293a;
+
+    text-align: center;
+
+    color: #52677f;
+
+    font-size: 9px;
+
+    letter-spacing: 1px;
+}
+
+
+/* =====================================================
+   RESPONSIVE
+===================================================== */
+
+@media (max-width: 950px) {
+
+    .main-grid {
+
+        grid-template-columns:
+            1fr;
+
+    }
+
+    .cards {
+
+        grid-template-columns:
+            1fr;
+
+    }
+
+}
+
+@media (max-width: 600px) {
+
+    .container {
+
+        padding: 15px;
+
+    }
+
+    header {
+
+        padding: 0 15px;
+
+    }
+
+    .radar {
+
+        width: 330px;
+        height: 330px;
+
+    }
+
+}
+
+</style>
+
+</head>
+
+
+<body>
+
+
+<!-- =====================================================
+     HEADER
+===================================================== -->
+
+<header>
+
+    <div>
+
+        <div class="logo">
+
+            <span class="logo-icon">✈</span>
+
+            <span class="logo-text">
+                SKYGUARDIAN
+            </span>
+
+        </div>
+
+        <div class="subtitle">
+            Edge-AI Resilient Flight Tracking
+        </div>
+
+    </div>
+
+
+    <div class="system">
+
+        <span class="system-dot"></span>
+
+        SYSTEM ONLINE
+
+    </div>
+
+</header>
+
+
+
+<div class="container">
+
+
+<!-- =====================================================
+     SUMMARY
+===================================================== -->
+
+<section class="cards">
+
+
+    <div class="card">
+
+        <div class="card-label">
+            AIRCRAFT
+        </div>
+
+        <div
+            id="aircraftCount"
+            class="card-number"
+        >
+            5
+        </div>
+
+        <div class="card-sub">
+            TRACKED
+        </div>
+
+    </div>
+
+
+    <div class="card">
+
+        <div class="card-label">
+            ANOMALIES
+        </div>
+
+        <div
+            id="anomalyCount"
+            class="card-number"
+        >
+            1
+        </div>
+
+        <div class="card-sub">
+            DETECTED
+        </div>
+
+    </div>
+
+
+    <div class="card">
+
+        <div class="card-label">
+            AI RISK
+        </div>
+
+        <div
+            id="riskScore"
+            class="card-number"
+        >
+            12
+        </div>
+
+        <div
+            id="riskLevel"
+            class="card-sub"
+        >
+            LOW
+        </div>
+
+    </div>
+
+
+</section>
+
+
+
+<!-- =====================================================
+     RADAR + DETAILS
+===================================================== -->
+
+<section class="main-grid">
+
+
+<!-- RADAR -->
+
+<div class="panel">
+
+    <div class="panel-header">
+
+        <span>
+            LIVE AIRSPACE
+        </span>
+
+        <span class="live">
+            ● LIVE
+        </span>
+
+    </div>
+
+
+    <div class="radar-container">
+
+
+        <div class="radar">
+
+
+            <div class="ring ring-1"></div>
+
+            <div class="ring ring-2"></div>
+
+            <div class="ring ring-3"></div>
+
+
+            <div class="cross-h"></div>
+
+            <div class="cross-v"></div>
+
+
+            <div class="diagonal-1"></div>
+
+            <div class="diagonal-2"></div>
+
+
+            <div class="sweep"></div>
+
+
+            <!-- Aircraft -->
+
+            <div
+                id="plane0"
+                class="aircraft normal"
+                style="left:25%;top:25%;"
+            >
+
+                <div class="aircraft-icon">
+                    ✈
+                </div>
+
+                <span class="aircraft-label">
+                    ABC123
+                </span>
+
+            </div>
+
+
+            <div
+                id="plane1"
+                class="aircraft normal"
+                style="left:70%;top:25%;"
+            >
+
+                <div class="aircraft-icon">
+                    ✈
+                </div>
+
+                <span class="aircraft-label">
+                    DEF456
+                </span>
+
+            </div>
+
+
+            <div
+                id="plane2"
+                class="aircraft monitor"
+                style="left:30%;top:70%;"
+            >
+
+                <div class="aircraft-icon">
+                    ✈
+                </div>
+
+                <span class="aircraft-label">
+                    A1B2C3
+                </span>
+
+            </div>
+
+
+            <div
+                id="plane3"
+                class="aircraft anomaly"
+                style="left:72%;top:65%;"
+            >
+
+                <div class="aircraft-icon">
+                    ✈
+                </div>
+
+                <span class="aircraft-label">
+                    F4E5D6
+                </span>
+
+            </div>
+
+
+            <div
+                id="plane4"
+                class="aircraft normal"
+                style="left:50%;top:45%;"
+            >
+
+                <div class="aircraft-icon">
+                    ✈
+                </div>
+
+                <span class="aircraft-label">
+                    B7C8D9
+                </span>
+
+            </div>
+
+
+            <div class="radar-center"></div>
+
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<!-- DETAILS -->
+
+<div class="panel details">
+
+    <div class="panel-header">
+
+        SELECTED AIRCRAFT
+
+    </div>
+
+
+    <div class="selected-box">
+
+        <span>
+            SELECTED
+        </span>
+
+        <strong id="selectedAircraft">
+            ABC123
+        </strong>
+
+    </div>
+
+
+    <div class="detail-row">
+
+        <span>
+            ICAO
+        </span>
+
+        <strong id="icao">
+            ABC123
+        </strong>
+
+    </div>
+
+
+    <div class="detail-row">
+
+        <span>
+            ALTITUDE
+        </span>
+
+        <strong id="altitude">
+            28,000 ft
+        </strong>
+
+    </div>
+
+
+    <div class="detail-row">
+
+        <span>
+            SPEED
+        </span>
+
+        <strong id="speed">
+            440 kt
+        </strong>
+
+    </div>
+
+
+    <div class="detail-row">
+
+        <span>
+            HEADING
+        </span>
+
+        <strong id="heading">
+            275°
+        </strong>
+
+    </div>
+
+
+    <div class="detail-row">
+
+        <span>
+            STATUS
+        </span>
+
+        <strong
+            id="flightStatus"
+            class="status-normal"
+        >
+            ● NORMAL
+        </strong>
+
+    </div>
+
+
+    <div class="help">
+
+        Select an aircraft from the radar
+        or click an aircraft row below.
+
+        <br><br>
+
+        <b>GREEN</b> = Normal
+
+        <br>
+
+        <b>ORANGE</b> = Monitor
+
+        <br>
+
+        <b>RED</b> = Anomaly
+
+    </div>
+
+</div>
+
+
+</section>
+
+
+
+<!-- =====================================================
+     TABLE
+===================================================== -->
+
+<section class="panel table-panel">
+
+
+    <div class="panel-header">
+
+        <span>
+            ACTIVE AIRCRAFT
+        </span>
+
+        <span>
+            CLICK ROW TO SELECT
+        </span>
+
+    </div>
+
+
+    <table>
+
+        <thead>
+
+            <tr>
+
+                <th>ICAO</th>
+
+                <th>ALTITUDE</th>
+
+                <th>SPEED</th>
+
+                <th>HEADING</th>
+
+                <th>STATUS</th>
+
+            </tr>
+
+        </thead>
+
+
+        <tbody id="aircraftTable">
+
+        </tbody>
+
+
+    </table>
+
+</section>
+
+
+
+<footer>
+
+    ADS-B • SIMULATION
+
+    &nbsp;&nbsp;│&nbsp;&nbsp;
+
+    EDGE AI • READY
+
+    &nbsp;&nbsp;│&nbsp;&nbsp;
+
+    OFFLINE MODE • READY
+
+</footer>
+
+
+</div>
+
+
+<!-- =====================================================
+     ARDUINO WEB UI
+===================================================== -->
+
+<script src="libs/socket.io.min.js"></script>
+
+<script src="libs/arduino.js"></script>
+
+<script src="app.js"></script>
+
+
+</body>
+
+</html>
+
