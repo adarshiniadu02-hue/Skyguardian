@@ -1,594 +1,1143 @@
-// ==========================================
-// SKYGUARDIAN
-// ==========================================
+/* =========================================================
+   SKYGUARDIAN
+   Edge-AI Resilient Flight Tracking
+   ========================================================= */
 
 
-// WebUI
-const ui = new WebUI();
+/* =========================================================
+   GLOBAL RESET
+   ========================================================= */
 
+* {
+    box-sizing: border-box;
+}
 
-// Socket.IO
-const socket = io();
+html,
+body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    min-height: 100%;
+}
 
-
-// Current aircraft
-let aircraft = [];
-
-
-// Selected aircraft
-let selectedICAO = "ABC123";
-
-
-// ==========================================
-// WEB UI CONNECTION
-// ==========================================
-
-ui.on_connect(() => {
-
-    console.log(
-        "SkyGuardian WebUI connected"
-    );
-
-});
-
-
-ui.on_disconnect(() => {
-
-    console.log(
-        "SkyGuardian WebUI disconnected"
-    );
-
-});
-
-
-// ==========================================
-// RECEIVE AIRCRAFT DATA
-// ==========================================
-
-socket.on(
-    "aircraft_data",
-    (data) => {
-
-        console.log(
-            "Received aircraft data",
-            data
-        );
-
-        updateDashboard(data);
-
-    }
-);
-
-
-// ==========================================
-// UPDATE DASHBOARD
-// ==========================================
-
-function updateDashboard(data) {
-
-
-    aircraft =
-        data.aircraft || [];
-
-
-    selectedICAO =
-        data.selected_icao ||
-        selectedICAO;
-
-
-    // --------------------------------------
-    // Summary
-    // --------------------------------------
-
-    document.getElementById(
-        "aircraftCount"
-    ).textContent =
-        data.aircraft_count;
-
-
-    document.getElementById(
-        "anomalyCount"
-    ).textContent =
-        data.anomaly_count;
-
-
-    // --------------------------------------
-    // Selected aircraft
-    // --------------------------------------
-
-    const selected =
-        aircraft.find(
-            plane =>
-                plane.icao ===
-                selectedICAO
-        );
-
-
-    if (selected) {
-
-        updateSelectedAircraft(
-            selected
-        );
-
-    }
-
-
-    // --------------------------------------
-    // Radar
-    // --------------------------------------
-
-    aircraft.forEach(
-        (plane, index) => {
-
-            updateRadarPlane(
-                plane,
-                index
-            );
-
-        }
-    );
-
-
-    // --------------------------------------
-    // Table
-    // --------------------------------------
-
-    updateTable();
-
+body {
+    background: #050b14;
+    color: #e8f1fb;
+    font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
+    overflow-x: hidden;
 }
 
 
-// ==========================================
-// UPDATE SELECTED AIRCRAFT
-// ==========================================
+/* =========================================================
+   HEADER
+   ========================================================= */
 
-function updateSelectedAircraft(
-    plane
-) {
+header {
+    height: 82px;
 
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 
-    document.getElementById(
-        "selectedAircraft"
-    ).textContent =
-        plane.icao;
+    padding: 0 30px;
 
+    background: #080f1b;
 
-    document.getElementById(
-        "icao"
-    ).textContent =
-        plane.icao;
+    border-bottom:
+        1px solid #1d2b3d;
+}
 
+.logo {
+    display: flex;
+    align-items: center;
 
-    document.getElementById(
-        "altitude"
-    ).textContent =
-        `${Math.round(
-            plane.altitude
-        ).toLocaleString()} ft`;
+    gap: 12px;
+}
 
+.logo-icon {
+    font-size: 28px;
 
-    document.getElementById(
-        "speed"
-    ).textContent =
-        `${Math.round(
-            plane.speed
-        )} kt`;
+    color: #38bdf8;
 
+    text-shadow:
+        0 0 12px
+        rgba(56, 189, 248, 0.7);
+}
 
-    document.getElementById(
-        "heading"
-    ).textContent =
-        `${Math.round(
-            plane.heading
-        )}°`;
+.logo-text {
+    font-size: 25px;
 
+    font-weight: 700;
 
-    const status =
-        document.getElementById(
-            "flightStatus"
-        );
+    letter-spacing: 2px;
+}
 
+.subtitle {
+    margin-top: 5px;
 
-    status.textContent =
-        `● ${plane.status}`;
+    color: #71869e;
 
+    font-size: 12px;
 
-    status.className =
-        "";
+    letter-spacing: 0.5px;
+}
 
+.system {
+    display: flex;
+    align-items: center;
 
-    if (
-        plane.status ===
-        "NORMAL"
-    ) {
+    gap: 8px;
 
-        status.classList.add(
-            "normal"
-        );
+    color: #22c55e;
 
+    font-size: 11px;
+
+    letter-spacing: 1px;
+}
+
+.system-dot {
+    width: 8px;
+    height: 8px;
+
+    border-radius: 50%;
+
+    background: #22c55e;
+
+    box-shadow:
+        0 0 8px #22c55e,
+        0 0 18px
+        rgba(34, 197, 94, 0.7);
+
+    animation:
+        systemPulse 2s infinite;
+}
+
+@keyframes systemPulse {
+
+    0% {
+        opacity: 1;
     }
 
-    else if (
-        plane.status ===
-        "ANOMALY"
-    ) {
-
-        status.classList.add(
-            "anomaly"
-        );
-
+    50% {
+        opacity: 0.45;
     }
 
-    else {
-
-        status.classList.add(
-            "monitor"
-        );
-
+    100% {
+        opacity: 1;
     }
-
-
-    // --------------------------------------
-    // Risk
-    // --------------------------------------
-
-    const risk =
-        document.getElementById(
-            "riskScore"
-        );
-
-
-    risk.textContent =
-        plane.risk;
-
-
-    const level =
-        document.getElementById(
-            "riskLevel"
-        );
-
-
-    if (plane.risk >= 70) {
-
-        level.textContent =
-            "HIGH";
-
-        level.className =
-            "small-label risk-high";
-
-    }
-
-    else if (plane.risk >= 40) {
-
-        level.textContent =
-            "MEDIUM";
-
-        level.className =
-            "small-label risk-medium";
-
-    }
-
-    else {
-
-        level.textContent =
-            "LOW";
-
-        level.className =
-            "small-label risk-low";
-
-    }
-
 }
 
 
-// ==========================================
-// UPDATE RADAR
-// ==========================================
+/* =========================================================
+   PAGE CONTAINER
+   ========================================================= */
 
-function updateRadarPlane(
-    plane,
-    index
-) {
+.container {
+    width: 100%;
 
-
-    const element =
-        document.getElementById(
-            `plane${index}`
-        );
-
-
-    if (!element) {
-
-        console.warn(
-            "Radar element missing:",
-            index
-        );
-
-        return;
-
-    }
-
-
-    // Position
-    element.style.left =
-        `${plane.x}%`;
-
-    element.style.top =
-        `${plane.y}%`;
-
-
-    // Status class
-
-    element.classList.remove(
-        "normal",
-        "monitor",
-        "anomaly",
-        "selected"
-    );
-
-
-    element.classList.add(
-        plane.status.toLowerCase()
-    );
-
-
-    // Selected
-
-    if (
-        plane.icao ===
-        selectedICAO
-    ) {
-
-        element.classList.add(
-            "selected"
-        );
-
-    }
-
-
-    // --------------------------------------
-    // Click
-    // --------------------------------------
-
-    element.onclick =
-        function () {
-
-            selectAircraft(
-                plane.icao
-            );
-
-        };
-
+    padding:
+        20px 24px 30px;
 }
 
 
-// ==========================================
-// SELECT AIRCRAFT
-// ==========================================
+/* =========================================================
+   SUMMARY CARDS
+   ========================================================= */
 
-function selectAircraft(
-    icao
-) {
+.cards {
 
+    display: grid;
 
-    console.log(
-        "✈ Selecting:",
-        icao
-    );
+    grid-template-columns:
+        repeat(3, 1fr);
 
+    gap: 16px;
 
-    selectedICAO =
-        icao;
+    margin-bottom: 18px;
+}
 
+.card {
 
-    // --------------------------------------
-    // Find aircraft
-    // --------------------------------------
+    min-height: 105px;
 
-    const plane =
-        aircraft.find(
-            p =>
-                p.icao ===
-                icao
+    padding: 18px 20px;
+
+    border:
+        1px solid #223248;
+
+    border-radius: 10px;
+
+    background:
+        linear-gradient(
+            145deg,
+            #0c1725,
+            #08111c
         );
 
+    box-shadow:
+        0 5px 20px
+        rgba(0, 0, 0, 0.15);
+}
 
-    if (plane) {
+.card-label {
 
-        updateSelectedAircraft(
-            plane
-        );
+    color: #71869e;
 
-    }
+    font-size: 10px;
 
+    letter-spacing: 2px;
+}
 
-    // --------------------------------------
-    // Update radar
-    // --------------------------------------
+.card-number {
 
-    aircraft.forEach(
-        (p, index) => {
+    margin-top: 7px;
 
-            const element =
-                document.getElementById(
-                    `plane${index}`
-                );
+    font-size: 34px;
 
+    line-height: 1;
 
-            if (!element) {
+    font-weight: 700;
 
-                return;
+    color: #f1f7ff;
+}
 
-            }
+.card-sub {
 
+    margin-top: 7px;
 
-            element.classList.remove(
-                "selected"
-            );
+    color: #52677f;
 
+    font-size: 9px;
 
-            if (
-                p.icao === icao
-            ) {
-
-                element.classList.add(
-                    "selected"
-                );
-
-            }
-
-        }
-    );
-
-
-    // --------------------------------------
-    // Update table
-    // --------------------------------------
-
-    updateTable();
-
-
-    // --------------------------------------
-    // SEND TO PYTHON
-    // --------------------------------------
-
-    socket.emit(
-        "aircraft_selected",
-        {
-            icao: icao
-        }
-    );
-
-
-    console.log(
-        "Sent aircraft_selected:",
-        icao
-    );
-
+    letter-spacing: 1px;
 }
 
 
-// ==========================================
-// UPDATE TABLE
-// ==========================================
+/* =========================================================
+   MAIN GRID
+   ========================================================= */
 
-function updateTable() {
+.main-grid {
 
+    display: grid;
 
-    const tbody =
-        document.getElementById(
-            "aircraftTable"
-        );
+    grid-template-columns:
+        minmax(0, 2fr)
+        minmax(320px, 1fr);
 
-
-    tbody.innerHTML = "";
-
-
-    aircraft.forEach(
-        plane => {
-
-
-            const row =
-                document.createElement(
-                    "tr"
-                );
-
-
-            if (
-                plane.icao ===
-                selectedICAO
-            ) {
-
-                row.classList.add(
-                    "selected-row"
-                );
-
-            }
-
-
-            row.innerHTML = `
-
-                <td>
-                    <strong>
-                        ${plane.icao}
-                    </strong>
-                </td>
-
-                <td>
-                    ${Math.round(
-                        plane.altitude
-                    ).toLocaleString()} ft
-                </td>
-
-                <td>
-                    ${Math.round(
-                        plane.speed
-                    )} kt
-                </td>
-
-                <td>
-                    ${Math.round(
-                        plane.heading
-                    )}°
-                </td>
-
-                <td class="${getStatusClass(
-                    plane.status
-                )}">
-                    ● ${plane.status}
-                </td>
-
-            `;
-
-
-            row.onclick =
-                function () {
-
-                    selectAircraft(
-                        plane.icao
-                    );
-
-                };
-
-
-            tbody.appendChild(
-                row
-            );
-
-        }
-    );
-
+    gap: 18px;
 }
 
 
-// ==========================================
-// STATUS CLASS
-// ==========================================
+/* =========================================================
+   PANELS
+   ========================================================= */
 
-function getStatusClass(
-    status
-) {
+.panel {
 
-    if (
-        status ===
-        "NORMAL"
-    ) {
+    border:
+        1px solid #223248;
 
-        return "normal";
+    border-radius: 10px;
 
+    background: #08111c;
+
+    overflow: hidden;
+
+    box-shadow:
+        0 5px 20px
+        rgba(0, 0, 0, 0.12);
+}
+
+.panel-header {
+
+    height: 40px;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    padding: 0 16px;
+
+    border-bottom:
+        1px solid #223248;
+
+    color: #8298b0;
+
+    font-size: 10px;
+
+    letter-spacing: 2px;
+}
+
+.live {
+
+    color: #22c55e;
+
+    font-size: 9px;
+
+    letter-spacing: 1px;
+}
+
+
+/* =========================================================
+   RADAR AREA
+   ========================================================= */
+
+.radar-container {
+
+    height: 520px;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    position: relative;
+
+    overflow: hidden;
+
+    background:
+        radial-gradient(
+            circle at center,
+            #092321 0%,
+            #06151a 35%,
+            #050b14 75%
+        );
+}
+
+
+/* =========================================================
+   RADAR
+   ========================================================= */
+
+.radar {
+
+    position: relative;
+
+    width: 430px;
+
+    height: 430px;
+
+    flex-shrink: 0;
+
+    border:
+        2px solid
+        rgba(34, 197, 94, 0.65);
+
+    border-radius: 50%;
+
+    background:
+        radial-gradient(
+            circle,
+            rgba(22, 93, 76, 0.22),
+            rgba(4, 13, 20, 0.9)
+        );
+
+    box-shadow:
+
+        0 0 30px
+        rgba(34, 197, 94, 0.12),
+
+        0 0 80px
+        rgba(34, 197, 94, 0.04),
+
+        inset 0 0 40px
+        rgba(34, 197, 94, 0.05);
+}
+
+
+/* =========================================================
+   RADAR RINGS
+   ========================================================= */
+
+.ring {
+
+    position: absolute;
+
+    left: 50%;
+    top: 50%;
+
+    transform:
+        translate(-50%, -50%);
+
+    border:
+        1px solid
+        rgba(70, 200, 150, 0.28);
+
+    border-radius: 50%;
+
+    pointer-events: none;
+}
+
+.ring-1 {
+    width: 25%;
+    height: 25%;
+}
+
+.ring-2 {
+    width: 50%;
+    height: 50%;
+}
+
+.ring-3 {
+    width: 75%;
+    height: 75%;
+}
+
+
+/* =========================================================
+   RADAR CROSSHAIR
+   ========================================================= */
+
+.cross-h {
+
+    position: absolute;
+
+    left: 0;
+    right: 0;
+
+    top: 50%;
+
+    height: 1px;
+
+    background:
+        rgba(70, 200, 150, 0.25);
+
+    pointer-events: none;
+}
+
+.cross-v {
+
+    position: absolute;
+
+    top: 0;
+    bottom: 0;
+
+    left: 50%;
+
+    width: 1px;
+
+    background:
+        rgba(70, 200, 150, 0.25);
+
+    pointer-events: none;
+}
+
+
+/* =========================================================
+   DIAGONALS
+   ========================================================= */
+
+.diagonal-1,
+.diagonal-2 {
+
+    position: absolute;
+
+    width: 100%;
+    height: 1px;
+
+    top: 50%;
+    left: 0;
+
+    background:
+        rgba(70, 200, 150, 0.12);
+
+    pointer-events: none;
+}
+
+.diagonal-1 {
+    transform: rotate(45deg);
+}
+
+.diagonal-2 {
+    transform: rotate(-45deg);
+}
+
+
+/* =========================================================
+   RADAR SWEEP
+   ========================================================= */
+
+.sweep {
+
+    position: absolute;
+
+    width: 50%;
+    height: 50%;
+
+    left: 50%;
+    top: 50%;
+
+    transform-origin: 0 0;
+
+    background:
+        conic-gradient(
+            from 0deg,
+            rgba(34, 197, 94, 0.28),
+            rgba(34, 197, 94, 0.08),
+            transparent 45deg
+        );
+
+    animation:
+        radarSweep 3s linear infinite;
+
+    pointer-events: none;
+}
+
+@keyframes radarSweep {
+
+    from {
+        transform: rotate(0deg);
     }
 
+    to {
+        transform: rotate(360deg);
+    }
+}
 
-    if (
-        status ===
-        "ANOMALY"
-    ) {
 
-        return "anomaly";
+/* =========================================================
+   RADAR CENTER
+   ========================================================= */
 
+.radar-center {
+
+    position: absolute;
+
+    left: 50%;
+    top: 50%;
+
+    transform:
+        translate(-50%, -50%);
+
+    width: 9px;
+    height: 9px;
+
+    border-radius: 50%;
+
+    background: #22c55e;
+
+    box-shadow:
+        0 0 12px #22c55e,
+        0 0 25px
+        rgba(34, 197, 94, 0.7);
+
+    z-index: 10;
+}
+
+
+/* =========================================================
+   AIRCRAFT
+   ========================================================= */
+
+.aircraft {
+
+    position: absolute;
+
+    z-index: 30;
+
+    transform:
+        translate(-50%, -50%);
+
+    text-align: center;
+
+    cursor: pointer;
+
+    user-select: none;
+
+    min-width: 55px;
+
+    padding: 3px;
+
+    transition:
+        left 1s linear,
+        top 1s linear,
+        transform 0.2s ease;
+
+    /* IMPORTANT:
+       aircraft must remain above radar graphics */
+    pointer-events: auto;
+}
+
+
+/* Aircraft icon */
+
+.aircraft-icon {
+
+    display: block;
+
+    font-size: 25px;
+
+    line-height: 28px;
+
+    font-weight: bold;
+
+    transition:
+        font-size 0.2s ease,
+        filter 0.2s ease;
+}
+
+
+/* Aircraft label */
+
+.aircraft-label {
+
+    display: block;
+
+    margin-top: 2px;
+
+    padding:
+        3px 6px;
+
+    border-radius: 3px;
+
+    background:
+        rgba(0, 0, 0, 0.85);
+
+    border:
+        1px solid
+        rgba(255,255,255,0.08);
+
+    font-size: 8px;
+
+    line-height: 11px;
+
+    letter-spacing: 0.7px;
+
+    white-space: nowrap;
+
+    font-weight: 600;
+}
+
+
+/* =========================================================
+   NORMAL AIRCRAFT
+   ========================================================= */
+
+.aircraft.normal {
+
+    color: #22c55e;
+}
+
+.aircraft.normal .aircraft-icon {
+
+    text-shadow:
+        0 0 8px #22c55e,
+        0 0 18px #22c55e,
+        0 0 30px
+        rgba(34, 197, 94, 0.7);
+}
+
+
+/* =========================================================
+   MONITOR AIRCRAFT
+   ========================================================= */
+
+.aircraft.monitor {
+
+    color: #f59e0b;
+}
+
+.aircraft.monitor .aircraft-icon {
+
+    text-shadow:
+        0 0 8px #f59e0b,
+        0 0 18px #f59e0b,
+        0 0 30px
+        rgba(245, 158, 11, 0.7);
+}
+
+
+/* =========================================================
+   ANOMALY AIRCRAFT
+   ========================================================= */
+
+.aircraft.anomaly {
+
+    color: #ef4444;
+}
+
+.aircraft.anomaly .aircraft-icon {
+
+    text-shadow:
+        0 0 8px #ef4444,
+        0 0 18px #ef4444,
+        0 0 30px #ef4444,
+        0 0 45px
+        rgba(239, 68, 68, 0.7);
+
+    animation:
+        anomalyPulse 1.2s infinite;
+}
+
+@keyframes anomalyPulse {
+
+    0% {
+        filter: brightness(1);
     }
 
+    50% {
+        filter: brightness(1.7);
+    }
 
-    return "monitor";
+    100% {
+        filter: brightness(1);
+    }
+}
 
+
+/* =========================================================
+   AIRCRAFT HOVER
+   ========================================================= */
+
+.aircraft:hover {
+
+    transform:
+        translate(-50%, -50%)
+        scale(1.18);
+
+    z-index: 80;
+}
+
+.aircraft:hover .aircraft-label {
+
+    border-color:
+        currentColor;
+
+    background:
+        rgba(0, 0, 0, 0.95);
+}
+
+
+/* =========================================================
+   SELECTED AIRCRAFT
+   ========================================================= */
+
+.aircraft.selected {
+
+    z-index: 100;
+
+    transform:
+        translate(-50%, -50%)
+        scale(1.15);
+}
+
+.aircraft.selected .aircraft-icon {
+
+    font-size: 34px;
+
+    text-shadow:
+
+        0 0 8px #ffffff,
+
+        0 0 18px currentColor,
+
+        0 0 32px currentColor,
+
+        0 0 50px currentColor;
+}
+
+.aircraft.selected .aircraft-label {
+
+    border:
+        1px solid currentColor;
+
+    box-shadow:
+        0 0 10px
+        currentColor;
+
+    background:
+        rgba(0, 0, 0, 0.95);
+}
+
+
+/* =========================================================
+   DETAILS PANEL
+   ========================================================= */
+
+.details {
+
+    min-height: 560px;
+}
+
+.selected-box {
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    padding: 18px;
+
+    background:
+        rgba(56, 189, 248, 0.04);
+
+    border-bottom:
+        1px solid #1b293a;
+}
+
+.selected-box span {
+
+    color: #667c94;
+
+    font-size: 10px;
+
+    letter-spacing: 1px;
+}
+
+.selected-box strong {
+
+    color: #38bdf8;
+
+    font-size: 14px;
+
+    text-shadow:
+        0 0 8px
+        rgba(56, 189, 248, 0.4);
+}
+
+
+/* =========================================================
+   DETAIL ROWS
+   ========================================================= */
+
+.detail-row {
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    padding: 18px;
+
+    border-bottom:
+        1px solid #172536;
+}
+
+.detail-row span {
+
+    color: #71859d;
+
+    font-size: 10px;
+
+    letter-spacing: 1px;
+}
+
+.detail-row strong {
+
+    font-size: 13px;
+
+    color: #e8f1fb;
+}
+
+
+/* =========================================================
+   STATUS COLORS
+   ========================================================= */
+
+.status-normal {
+
+    color: #22c55e !important;
+}
+
+.status-monitor {
+
+    color: #f59e0b !important;
+}
+
+.status-anomaly {
+
+    color: #ef4444 !important;
+}
+
+
+/* =========================================================
+   HELP TEXT
+   ========================================================= */
+
+.help {
+
+    margin-top: 15px;
+
+    padding: 15px;
+
+    color: #536981;
+
+    font-size: 10px;
+
+    line-height: 1.7;
+}
+
+.help b {
+
+    font-weight: 600;
+}
+
+.help b:first-child {
+
+    color: #22c55e;
+}
+
+
+/* =========================================================
+   AIRCRAFT TABLE
+   ========================================================= */
+
+.table-panel {
+
+    margin-top: 18px;
+}
+
+table {
+
+    width: 100%;
+
+    border-collapse: collapse;
+}
+
+th {
+
+    padding:
+        13px 15px;
+
+    color: #62778f;
+
+    text-align: left;
+
+    font-size: 9px;
+
+    letter-spacing: 1.5px;
+
+    font-weight: 500;
+}
+
+td {
+
+    padding:
+        13px 15px;
+
+    border-top:
+        1px solid #182536;
+
+    font-size: 12px;
+
+    color: #dce7f3;
+}
+
+tbody tr {
+
+    cursor: pointer;
+
+    transition:
+        background 0.15s ease;
+}
+
+tbody tr:hover {
+
+    background:
+        rgba(56, 189, 248, 0.05);
+}
+
+tbody tr.selected-row {
+
+    background:
+        rgba(56, 189, 248, 0.09);
+
+    box-shadow:
+        inset 3px 0 #38bdf8;
+}
+
+
+/* =========================================================
+   TABLE STATUS DOTS
+   ========================================================= */
+
+td.status-normal,
+td.status-monitor,
+td.status-anomaly {
+
+    font-weight: 600;
+
+    font-size: 11px;
+}
+
+
+/* =========================================================
+   FOOTER
+   ========================================================= */
+
+footer {
+
+    margin-top: 18px;
+
+    padding: 14px;
+
+    border-top:
+        1px solid #1b293a;
+
+    text-align: center;
+
+    color: #52677f;
+
+    font-size: 9px;
+
+    letter-spacing: 1px;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 1100px) {
+
+    .main-grid {
+
+        grid-template-columns:
+            minmax(0, 1.7fr)
+            minmax(300px, 1fr);
+    }
+
+    .radar {
+
+        width: 390px;
+        height: 390px;
+    }
+
+    .radar-container {
+
+        height: 480px;
+    }
+}
+
+
+@media (max-width: 950px) {
+
+    .main-grid {
+
+        grid-template-columns:
+            1fr;
+    }
+
+    .cards {
+
+        grid-template-columns:
+            1fr;
+    }
+
+    .details {
+
+        min-height: auto;
+    }
+
+    .radar {
+
+        width: 420px;
+        height: 420px;
+    }
+
+    .radar-container {
+
+        height: 500px;
+    }
+}
+
+
+@media (max-width: 600px) {
+
+    header {
+
+        height: auto;
+
+        min-height: 75px;
+
+        padding:
+            15px;
+    }
+
+    .logo-text {
+
+        font-size: 20px;
+    }
+
+    .subtitle {
+
+        font-size: 10px;
+    }
+
+    .system {
+
+        font-size: 9px;
+    }
+
+    .container {
+
+        padding:
+            15px;
+    }
+
+    .radar {
+
+        width: 330px;
+        height: 330px;
+    }
+
+    .radar-container {
+
+        height: 400px;
+    }
+
+    .aircraft-icon {
+
+        font-size: 21px;
+    }
+
+    .aircraft.selected .aircraft-icon {
+
+        font-size: 29px;
+    }
+
+    th,
+    td {
+
+        padding:
+            10px 8px;
+    }
+}
+
+
+/* =========================================================
+   VERY SMALL SCREENS
+   ========================================================= */
+
+@media (max-width: 420px) {
+
+    .radar {
+
+        width: 280px;
+        height: 280px;
+    }
+
+    .radar-container {
+
+        height: 340px;
+    }
+
+    .aircraft-icon {
+
+        font-size: 18px;
+    }
+
+    .aircraft-label {
+
+        font-size: 7px;
+    }
 }

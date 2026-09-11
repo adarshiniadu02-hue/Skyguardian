@@ -1,183 +1,855 @@
-// ==================================================
+// ============================================================
 // SKYGUARDIAN WEB UI
-// ==================================================
+// LIVE FUSION DASHBOARD
+// ============================================================
 
 const ui = new WebUI();
 
 
-// ==================================================
-// AIRCRAFT DATA
-// ==================================================
+// ============================================================
+// AIRCRAFT STORE
+// ============================================================
 
-const aircraft = {
+let aircraft = {};
 
-    ABC123: {
-        altitude: "28,000 ft",
-        speed: "440 kt",
-        heading: "275°",
-        status: "NORMAL"
-    },
-
-    DEF456: {
-        altitude: "32,000 ft",
-        speed: "470 kt",
-        heading: "180°",
-        status: "NORMAL"
-    },
-
-    A1B2C3: {
-        altitude: "12,000 ft",
-        speed: "280 kt",
-        heading: "090°",
-        status: "MONITOR"
-    },
-
-    F4E5D6: {
-        altitude: "22,000 ft",
-        speed: "510 kt",
-        heading: "315°",
-        status: "ANOMALY"
-    },
-
-    B7C8D9: {
-        altitude: "35,000 ft",
-        speed: "460 kt",
-        heading: "040°",
-        status: "NORMAL"
-    }
-
-};
+let selectedIcao = null;
 
 
-// ==================================================
-// CONNECT
-// ==================================================
+// ============================================================
+// CONNECTION
+// ============================================================
 
 ui.on_connect(() => {
 
-    console.log("SkyGuardian Web UI connected");
+    console.log(
+        "======================================"
+    );
 
-    buildAircraftTable();
+    console.log(
+        "SKYGUARDIAN WEB UI CONNECTED"
+    );
 
-    selectAircraft("ABC123");
+    console.log(
+        "Waiting for live aircraft_update..."
+    );
+
+    console.log(
+        "======================================"
+    );
 
 });
 
 
-// ==================================================
-// DISCONNECT
-// ==================================================
+// ============================================================
+// DISCONNECTION
+// ============================================================
 
 ui.on_disconnect(() => {
 
-    console.log("Web UI disconnected");
+    console.log(
+        "SKYGUARDIAN WEB UI DISCONNECTED"
+    );
 
 });
 
 
-// ==================================================
-// SELECT AIRCRAFT
-// ==================================================
+// ============================================================
+// RECEIVE LIVE AIRCRAFT DATA
+// ============================================================
 
-function selectAircraft(icao) {
+ui.on_message(
+    "aircraft_update",
+    (message) => {
 
-    console.log("Selecting aircraft:", icao);
+        console.log(
+            "======================================"
+        );
 
-    const data = aircraft[icao];
+        console.log(
+            "LIVE AIRCRAFT UPDATE RECEIVED"
+        );
 
-    if (!data) {
+        console.log(
+            "Raw message:",
+            message
+        );
 
-        console.log("Aircraft not found:", icao);
+
+        // ----------------------------------------------------
+        // Validate message
+        // ----------------------------------------------------
+
+        if (
+            !message ||
+            !Array.isArray(
+                message.aircraft
+            )
+        ) {
+
+            console.error(
+                "INVALID AIRCRAFT MESSAGE"
+            );
+
+            console.error(
+                message
+            );
+
+            return;
+
+        }
+
+
+        console.log(
+            "Aircraft array length:",
+            message.aircraft.length
+        );
+
+
+        // ----------------------------------------------------
+        // Clear previous aircraft
+        // ----------------------------------------------------
+
+        aircraft = {};
+
+
+        // ----------------------------------------------------
+        // Store current aircraft
+        // ----------------------------------------------------
+
+        message.aircraft.forEach(
+            (plane) => {
+
+                if (
+                    !plane ||
+                    !plane.icao
+                ) {
+
+                    console.warn(
+                        "Invalid aircraft:",
+                        plane
+                    );
+
+                    return;
+
+                }
+
+
+                const icao =
+                    String(
+                        plane.icao
+                    )
+                    .trim()
+                    .toUpperCase();
+
+
+                aircraft[icao] = plane;
+
+            }
+        );
+
+
+        console.log(
+            "Aircraft stored:",
+            Object.keys(
+                aircraft
+            ).length
+        );
+
+
+        // ----------------------------------------------------
+        // Render dashboard
+        // ----------------------------------------------------
+
+        renderDashboard();
+
+
+        console.log(
+            "======================================"
+        );
+
+    }
+);
+
+
+// ============================================================
+// RECEIVE SELECTED AIRCRAFT
+// ============================================================
+
+ui.on_message(
+    "aircraft_selected",
+    (plane) => {
+
+        console.log(
+            "Selected aircraft received from Python:",
+            plane
+        );
+
+    }
+);
+
+
+// ============================================================
+// RENDER DASHBOARD
+// ============================================================
+
+function renderDashboard() {
+
+    const list =
+        Object.values(
+            aircraft
+        );
+
+
+    console.log(
+        "Rendering:",
+        list.length,
+        "aircraft"
+    );
+
+
+    updateSummary(
+        list
+    );
+
+
+    updateRadar(
+        list
+    );
+
+
+    updateTable(
+        list
+    );
+
+
+    // --------------------------------------------------------
+    // Keep selected aircraft if still available
+    // --------------------------------------------------------
+
+    if (
+        selectedIcao &&
+        aircraft[selectedIcao]
+    ) {
+
+        selectAircraft(
+            selectedIcao,
+            false
+        );
+
+    }
+
+    // --------------------------------------------------------
+    // Select first aircraft when nothing is selected
+    // --------------------------------------------------------
+
+    else if (
+        list.length > 0
+    ) {
+
+        selectAircraft(
+            list[0].icao,
+            false
+        );
+
+    }
+
+}
+
+
+// ============================================================
+// SUMMARY
+// ============================================================
+
+function updateSummary(
+    list
+) {
+
+    const count =
+        document.getElementById(
+            "aircraftCount"
+        );
+
+
+    const anomalies =
+        document.getElementById(
+            "anomalyCount"
+        );
+
+
+    const risk =
+        document.getElementById(
+            "riskScore"
+        );
+
+
+    const riskLevel =
+        document.getElementById(
+            "riskLevel"
+        );
+
+
+    // --------------------------------------------------------
+    // Aircraft count
+    // --------------------------------------------------------
+
+    if (count) {
+
+        count.textContent =
+            list.length;
+
+    }
+
+
+    // --------------------------------------------------------
+    // Calculate summary risk
+    // --------------------------------------------------------
+
+    let anomalyCount = 0;
+
+    let highestRisk = 0;
+
+
+    list.forEach(
+        (plane) => {
+
+            const status =
+                getRiskLevel(
+                    plane
+                );
+
+
+            if (
+                status === "ANOMALY"
+            ) {
+
+                anomalyCount++;
+
+            }
+
+
+            const planeRisk =
+                getFinalScore(
+                    plane
+                );
+
+
+            if (
+                planeRisk >
+                highestRisk
+            ) {
+
+                highestRisk =
+                    planeRisk;
+
+            }
+
+        }
+    );
+
+
+    // --------------------------------------------------------
+    // Anomaly count
+    // --------------------------------------------------------
+
+    if (anomalies) {
+
+        anomalies.textContent =
+            anomalyCount;
+
+    }
+
+
+    // --------------------------------------------------------
+    // Highest risk score
+    // --------------------------------------------------------
+
+    if (risk) {
+
+        risk.textContent =
+            Math.round(
+                highestRisk
+            );
+
+    }
+
+
+    // --------------------------------------------------------
+    // Overall risk level
+    // --------------------------------------------------------
+
+    if (riskLevel) {
+
+        if (
+            highestRisk >= 80
+        ) {
+
+            riskLevel.textContent =
+                "HIGH";
+
+        }
+
+        else if (
+            highestRisk >= 60
+        ) {
+
+            riskLevel.textContent =
+                "MEDIUM";
+
+        }
+
+        else {
+
+            riskLevel.textContent =
+                "LOW";
+
+        }
+
+    }
+
+}
+
+
+// ============================================================
+// RADAR
+// ============================================================
+
+function updateRadar(
+    list
+) {
+
+    const radar =
+        document.getElementById(
+            "radar"
+        );
+
+
+    if (!radar) {
+
+        console.error(
+            "Radar element not found"
+        );
 
         return;
+
     }
 
 
-    // ----------------------------------------------
-    // Update selected aircraft
-    // ----------------------------------------------
+    // --------------------------------------------------------
+    // Remove only dynamically generated aircraft
+    // --------------------------------------------------------
 
-    document.getElementById(
-        "selectedAircraft"
-    ).textContent = icao;
+    radar
+        .querySelectorAll(
+            ".aircraft"
+        )
+        .forEach(
+            (element) => {
 
+                element.remove();
 
-    document.getElementById(
-        "icao"
-    ).textContent = icao;
-
-
-    document.getElementById(
-        "altitude"
-    ).textContent = data.altitude;
+            }
+        );
 
 
-    document.getElementById(
-        "speed"
-    ).textContent = data.speed;
+    // --------------------------------------------------------
+    // Add current aircraft
+    // --------------------------------------------------------
+
+    list.forEach(
+        (plane) => {
+
+            const element =
+                document.createElement(
+                    "div"
+                );
 
 
-    document.getElementById(
-        "heading"
-    ).textContent = data.heading;
+            const status =
+                getRiskLevel(
+                    plane
+                )
+                .toLowerCase();
 
 
-    // ----------------------------------------------
-    // Update status
-    // ----------------------------------------------
+            element.className =
+                "aircraft " +
+                status;
+
+
+            element.id =
+                "plane-" +
+                plane.icao;
+
+
+            // ------------------------------------------------
+            // RADAR POSITION
+            // ------------------------------------------------
+
+            let x =
+                Number(
+                    plane.x
+                );
+
+
+            let y =
+                Number(
+                    plane.y
+                );
+
+
+            if (
+                !Number.isFinite(x)
+            ) {
+
+                x = 50;
+
+            }
+
+
+            if (
+                !Number.isFinite(y)
+            ) {
+
+                y = 50;
+
+            }
+
+
+            x =
+                Math.max(
+                    5,
+                    Math.min(
+                        95,
+                        x
+                    )
+                );
+
+
+            y =
+                Math.max(
+                    5,
+                    Math.min(
+                        95,
+                        y
+                    )
+                );
+
+
+            element.style.left =
+                x + "%";
+
+
+            element.style.top =
+                y + "%";
+
+
+            element.style.cursor =
+                "pointer";
+
+
+            element.dataset.icao =
+                plane.icao;
+
+
+            // ------------------------------------------------
+            // ICON
+            // ------------------------------------------------
+
+            const icon =
+                document.createElement(
+                    "div"
+                );
+
+
+            icon.className =
+                "aircraft-icon";
+
+
+            icon.textContent =
+                "✈";
+
+
+            // ------------------------------------------------
+            // LABEL
+            // ------------------------------------------------
+
+            const label =
+                document.createElement(
+                    "span"
+                );
+
+
+            label.className =
+                "aircraft-label";
+
+
+            label.textContent =
+                plane.callsign ||
+                plane.icao;
+
+
+            // ------------------------------------------------
+            // BUILD ELEMENT
+            // ------------------------------------------------
+
+            element.appendChild(
+                icon
+            );
+
+
+            element.appendChild(
+                label
+            );
+
+
+            // ------------------------------------------------
+            // CLICK
+            // ------------------------------------------------
+
+            element.addEventListener(
+                "click",
+                (event) => {
+
+                    event.stopPropagation();
+
+                    selectAircraft(
+                        plane.icao
+                    );
+
+                }
+            );
+
+
+            radar.appendChild(
+                element
+            );
+
+        }
+    );
+
+
+    console.log(
+        "Radar aircraft rendered:",
+        list.length
+    );
+
+}
+
+
+// ============================================================
+// SELECT AIRCRAFT
+// ============================================================
+
+function selectAircraft(
+    icao,
+    sendToPython = true
+) {
+
+    if (!icao) {
+
+        return;
+
+    }
+
+
+    const normalizedIcao =
+        String(
+            icao
+        )
+        .trim()
+        .toUpperCase();
+
+
+    const plane =
+        aircraft[
+            normalizedIcao
+        ];
+
+
+    if (!plane) {
+
+        console.error(
+            "Aircraft not found:",
+            normalizedIcao
+        );
+
+        return;
+
+    }
+
+
+    selectedIcao =
+        normalizedIcao;
+
+
+    console.log(
+        "Selected aircraft:",
+        plane
+    );
+
+
+    // ========================================================
+    // BASIC DETAILS
+    // ========================================================
+
+    const selected =
+        document.getElementById(
+            "selectedAircraft"
+        );
+
+
+    if (selected) {
+
+        selected.textContent =
+            plane.callsign ||
+            plane.icao ||
+            "--";
+
+    }
+
+
+    const icaoElement =
+        document.getElementById(
+            "icao"
+        );
+
+
+    if (icaoElement) {
+
+        icaoElement.textContent =
+            plane.icao ||
+            "--";
+
+    }
+
+
+    // ========================================================
+    // ALTITUDE
+    // ========================================================
+
+    const altitude =
+        document.getElementById(
+            "altitude"
+        );
+
+
+    if (altitude) {
+
+        altitude.textContent =
+            formatAltitude(
+                getAltitudeMeters(
+                    plane
+                )
+            );
+
+    }
+
+
+    // ========================================================
+    // SPEED
+    // ========================================================
+
+    const speed =
+        document.getElementById(
+            "speed"
+        );
+
+
+    if (speed) {
+
+        speed.textContent =
+            formatSpeed(
+                getSpeedMps(
+                    plane
+                )
+            );
+
+    }
+
+
+    // ========================================================
+    // HEADING
+    // ========================================================
+
+    const heading =
+        document.getElementById(
+            "heading"
+        );
+
+
+    if (heading) {
+
+        heading.textContent =
+            formatHeading(
+                plane.heading ??
+                plane.heading_deg
+            );
+
+    }
+
+
+    // ========================================================
+    // STATUS
+    // ========================================================
+
+    const status =
+        getRiskLevel(
+            plane
+        );
+
 
     const statusElement =
-        document.getElementById("flightStatus");
-
-
-    statusElement.textContent =
-        "● " + data.status;
-
-
-    statusElement.className = "";
-
-
-    if (data.status === "NORMAL") {
-
-        statusElement.classList.add(
-            "status-normal"
+        document.getElementById(
+            "flightStatus"
         );
 
-    }
 
-    else if (data.status === "MONITOR") {
+    if (statusElement) {
 
-        statusElement.classList.add(
-            "status-monitor"
-        );
+        statusElement.textContent =
+            "● " + status;
 
-    }
 
-    else {
-
-        statusElement.classList.add(
-            "status-anomaly"
-        );
+        statusElement.className =
+            getStatusClass(
+                status
+            );
 
     }
 
 
-    // ----------------------------------------------
-    // Highlight radar aircraft
-    // ----------------------------------------------
+    // ========================================================
+    // OPTIONAL RISK ELEMENTS
+    // ========================================================
+
+    updateOptionalDetails(
+        plane
+    );
+
+
+    // ========================================================
+    // RADAR HIGHLIGHT
+    // ========================================================
 
     document
-        .querySelectorAll(".aircraft")
-        .forEach(plane => {
+        .querySelectorAll(
+            ".aircraft"
+        )
+        .forEach(
+            (element) => {
 
-            plane.classList.remove("selected");
+                element.classList.remove(
+                    "selected"
+                );
 
-        });
+            }
+        );
 
 
     const selectedPlane =
         document.getElementById(
-            getPlaneId(icao)
+            "plane-" +
+            normalizedIcao
         );
 
 
@@ -190,24 +862,28 @@ function selectAircraft(icao) {
     }
 
 
-    // ----------------------------------------------
-    // Highlight table row
-    // ----------------------------------------------
+    // ========================================================
+    // TABLE HIGHLIGHT
+    // ========================================================
 
     document
-        .querySelectorAll("#aircraftTable tr")
-        .forEach(row => {
+        .querySelectorAll(
+            "#aircraftTable tr"
+        )
+        .forEach(
+            (row) => {
 
-            row.classList.remove(
-                "selected-row"
-            );
+                row.classList.remove(
+                    "selected-row"
+                );
 
-        });
+            }
+        );
 
 
     const row =
         document.querySelector(
-            `[data-icao="${icao}"]`
+            `#aircraftTable tr[data-icao="${normalizedIcao}"]`
         );
 
 
@@ -220,88 +896,225 @@ function selectAircraft(icao) {
     }
 
 
-    // ----------------------------------------------
+    // ========================================================
     // SEND SELECTION TO PYTHON
-    // ----------------------------------------------
+    // ========================================================
 
-    console.log(
-        "Sending selection to Python:",
-        icao
-    );
+    if (
+        sendToPython
+    ) {
 
+        try {
 
-    ui.send_message(
-        "select_aircraft",
-        {
-            icao: icao
-        }
-    );
-
-}
-
-
-// ==================================================
-// MAP ICAO → RADAR PLANE
-// ==================================================
-
-function getPlaneId(icao) {
-
-    const map = {
-
-        "ABC123": "plane0",
-
-        "DEF456": "plane1",
-
-        "A1B2C3": "plane2",
-
-        "F4E5D6": "plane3",
-
-        "B7C8D9": "plane4"
-
-    };
-
-    return map[icao];
-
-}
-
-
-// ==================================================
-// CLICK EVENTS FOR RADAR AIRCRAFT
-// ==================================================
-
-document
-    .querySelectorAll(".aircraft")
-    .forEach(plane => {
-
-        plane.addEventListener(
-            "click",
-            () => {
-
-                const label =
-                    plane.querySelector(
-                        ".aircraft-label"
-                    );
-
-                if (!label) {
-                    return;
+            ui.send_message(
+                "select_aircraft",
+                {
+                    icao: normalizedIcao
                 }
+            );
 
-                const icao =
-                    label.textContent.trim();
+        }
 
-                selectAircraft(icao);
+        catch (error) {
 
-            }
+            console.error(
+                "Selection send error:",
+                error
+            );
+
+        }
+
+    }
+
+}
+
+
+// ============================================================
+// OPTIONAL LIVE AI DETAILS
+// ============================================================
+
+function updateOptionalDetails(
+    plane
+) {
+
+    const finalScore =
+        getFinalScore(
+            plane
         );
 
-    });
+
+    const ruleScore =
+        getNumber(
+            plane.rule_score,
+            0
+        );
 
 
-// ==================================================
-// AIRCRAFT TABLE
-// ==================================================
+    const mlScore =
+        getNumber(
+            plane.ml_score,
+            0
+        );
 
-function buildAircraftTable() {
+
+    const mlClass =
+        String(
+            plane.ml_class ||
+            "UNAVAILABLE"
+        ).toUpperCase();
+
+
+    const explanation =
+        plane.explanation ||
+        plane.indicator ||
+        "NO_SIGNIFICANT_ANOMALY";
+
+
+    // --------------------------------------------------------
+    // Final score
+    // --------------------------------------------------------
+
+    updateElementIfExists(
+        "finalScore",
+        Math.round(
+            finalScore
+        )
+    );
+
+
+    updateElementIfExists(
+        "fusionScore",
+        Math.round(
+            finalScore
+        )
+    );
+
+
+    // --------------------------------------------------------
+    // Rule score
+    // --------------------------------------------------------
+
+    updateElementIfExists(
+        "ruleScore",
+        Math.round(
+            ruleScore
+        )
+    );
+
+
+    // --------------------------------------------------------
+    // ML score
+    // --------------------------------------------------------
+
+    updateElementIfExists(
+        "mlScore",
+        Math.round(
+            mlScore
+        )
+    );
+
+
+    // --------------------------------------------------------
+    // ML classification
+    // --------------------------------------------------------
+
+    updateElementIfExists(
+        "mlClass",
+        mlClass
+    );
+
+
+    updateElementIfExists(
+        "mlClassification",
+        mlClass
+    );
+
+
+    // --------------------------------------------------------
+    // Explanation
+    // --------------------------------------------------------
+
+    updateElementIfExists(
+        "anomalyExplanation",
+        explanation
+    );
+
+
+    updateElementIfExists(
+        "explanation",
+        explanation
+    );
+
+
+    // --------------------------------------------------------
+    // Trajectory features
+    // --------------------------------------------------------
+
+    updateElementIfExists(
+        "distancePrevious",
+        formatNumber(
+            plane.distance_from_previous_m
+        ) + " m"
+    );
+
+
+    updateElementIfExists(
+        "timeDelta",
+        formatNumber(
+            plane.time_delta_s
+        ) + " s"
+    );
+
+
+    updateElementIfExists(
+        "altitudeChange",
+        formatNumber(
+            plane.altitude_change_m
+        ) + " m"
+    );
+
+
+    updateElementIfExists(
+        "speedChange",
+        formatNumber(
+            plane.speed_change_mps
+        ) + " m/s"
+    );
+
+
+    updateElementIfExists(
+        "headingChange",
+        formatNumber(
+            plane.heading_change_deg
+        ) + "°"
+    );
+
+
+    updateElementIfExists(
+        "calculatedSpeed",
+        formatNumber(
+            plane.calculated_speed_mps
+        ) + " m/s"
+    );
+
+
+    updateElementIfExists(
+        "acceleration",
+        formatNumber(
+            plane.acceleration_mps2
+        ) + " m/s²"
+    );
+
+}
+
+
+// ============================================================
+// TABLE
+// ============================================================
+
+function updateTable(
+    list
+) {
 
     const table =
         document.getElementById(
@@ -309,38 +1122,86 @@ function buildAircraftTable() {
         );
 
 
+    if (!table) {
+
+        console.error(
+            "Aircraft table not found"
+        );
+
+        return;
+
+    }
+
+
     table.innerHTML = "";
 
 
-    Object.keys(aircraft)
-        .forEach(icao => {
-
-            const data =
-                aircraft[icao];
-
+    list.forEach(
+        (plane) => {
 
             const row =
-                document.createElement("tr");
+                document.createElement(
+                    "tr"
+                );
 
 
-            row.setAttribute(
-                "data-icao",
-                icao
-            );
+            row.dataset.icao =
+                plane.icao;
+
+
+            const status =
+                getRiskLevel(
+                    plane
+                );
+
+
+            const icao =
+                plane.icao ||
+                "--";
+
+
+            const callsign =
+                plane.callsign ||
+                icao;
 
 
             row.innerHTML = `
 
-                <td>${icao}</td>
+                <td>
+                    ${escapeHTML(callsign)}
+                </td>
 
-                <td>${data.altitude}</td>
+                <td>
+                    ${escapeHTML(
+                        formatAltitude(
+                            getAltitudeMeters(
+                                plane
+                            )
+                        )
+                    )}
+                </td>
 
-                <td>${data.speed}</td>
+                <td>
+                    ${escapeHTML(
+                        formatSpeed(
+                            getSpeedMps(
+                                plane
+                            )
+                        )
+                    )}
+                </td>
 
-                <td>${data.heading}</td>
+                <td>
+                    ${escapeHTML(
+                        formatHeading(
+                            plane.heading ??
+                            plane.heading_deg
+                        )
+                    )}
+                </td>
 
-                <td class="${getStatusClass(data.status)}">
-                    ● ${data.status}
+                <td class="${getStatusClass(status)}">
+                    ● ${escapeHTML(status)}
                 </td>
 
             `;
@@ -350,54 +1211,592 @@ function buildAircraftTable() {
                 "click",
                 () => {
 
-                    selectAircraft(icao);
+                    selectAircraft(
+                        plane.icao
+                    );
 
                 }
             );
 
 
-            table.appendChild(row);
+            table.appendChild(
+                row
+            );
 
-        });
+        }
+    );
+
+
+    console.log(
+        "Table rows:",
+        list.length
+    );
 
 }
 
 
-// ==================================================
+// ============================================================
+// GET ALTITUDE
+// ============================================================
+
+function getAltitudeMeters(
+    plane
+) {
+
+    // New live format
+    if (
+        plane.altitude_m !== undefined &&
+        plane.altitude_m !== null
+    ) {
+
+        return getNumber(
+            plane.altitude_m,
+            0
+        );
+
+    }
+
+
+    // Existing dashboard format
+    if (
+        plane.altitude !== undefined &&
+        plane.altitude !== null
+    ) {
+
+        return getNumber(
+            plane.altitude,
+            0
+        );
+
+    }
+
+
+    // Fallback: feet → meters
+    if (
+        plane.altitude_ft !== undefined &&
+        plane.altitude_ft !== null
+    ) {
+
+        return (
+            getNumber(
+                plane.altitude_ft,
+                0
+            )
+            *
+            0.3048
+        );
+
+    }
+
+
+    return 0;
+
+}
+
+
+// ============================================================
+// GET SPEED
+// ============================================================
+
+function getSpeedMps(
+    plane
+) {
+
+    // New live format
+    if (
+        plane.speed_mps !== undefined &&
+        plane.speed_mps !== null
+    ) {
+
+        return getNumber(
+            plane.speed_mps,
+            0
+        );
+
+    }
+
+
+    // Existing dashboard format
+    if (
+        plane.speed !== undefined &&
+        plane.speed !== null
+    ) {
+
+        return getNumber(
+            plane.speed,
+            0
+        );
+
+    }
+
+
+    // Fallback: knots → m/s
+    if (
+        plane.speed_kt !== undefined &&
+        plane.speed_kt !== null
+    ) {
+
+        return (
+            getNumber(
+                plane.speed_kt,
+                0
+            )
+            *
+            0.514444
+        );
+
+    }
+
+
+    return 0;
+
+}
+
+
+// ============================================================
+// GET FINAL RISK SCORE
+// ============================================================
+
+function getFinalScore(
+    plane
+) {
+
+    if (
+        plane.final_score !== undefined &&
+        plane.final_score !== null
+    ) {
+
+        return getNumber(
+            plane.final_score,
+            0
+        );
+
+    }
+
+
+    if (
+        plane.risk !== undefined &&
+        plane.risk !== null
+    ) {
+
+        return getNumber(
+            plane.risk,
+            0
+        );
+
+    }
+
+
+    return 0;
+
+}
+
+
+// ============================================================
+// GET RISK LEVEL
+// ============================================================
+
+function getRiskLevel(
+    plane
+) {
+
+    const level =
+        String(
+            plane.risk_level ||
+            plane.status ||
+            ""
+        )
+        .trim()
+        .toUpperCase();
+
+
+    if (
+        level === "ANOMALY"
+    ) {
+
+        return "ANOMALY";
+
+    }
+
+
+    if (
+        level === "MONITOR"
+    ) {
+
+        return "MONITOR";
+
+    }
+
+
+    if (
+        level === "NORMAL"
+    ) {
+
+        return "NORMAL";
+
+    }
+
+
+    // --------------------------------------------------------
+    // Fallback based on final score
+    // --------------------------------------------------------
+
+    const score =
+        getFinalScore(
+            plane
+        );
+
+
+    if (
+        score >= 80
+    ) {
+
+        return "ANOMALY";
+
+    }
+
+
+    if (
+        score >= 60
+    ) {
+
+        return "MONITOR";
+
+    }
+
+
+    return "NORMAL";
+
+}
+
+
+// ============================================================
+// ALTITUDE FORMAT
+// ============================================================
+
+function formatAltitude(
+    meters
+) {
+
+    if (
+        meters === null ||
+        meters === undefined ||
+        meters === ""
+    ) {
+
+        return "--";
+
+    }
+
+
+    const value =
+        Number(
+            meters
+        );
+
+
+    if (
+        !Number.isFinite(value)
+    ) {
+
+        return "--";
+
+    }
+
+
+    const feet =
+        value *
+        3.28084;
+
+
+    return (
+        Math.round(
+            feet
+        )
+        .toLocaleString() +
+        " ft"
+    );
+
+}
+
+
+// ============================================================
+// SPEED FORMAT
+// ============================================================
+
+function formatSpeed(
+    metersPerSecond
+) {
+
+    if (
+        metersPerSecond === null ||
+        metersPerSecond === undefined ||
+        metersPerSecond === ""
+    ) {
+
+        return "--";
+
+    }
+
+
+    const value =
+        Number(
+            metersPerSecond
+        );
+
+
+    if (
+        !Number.isFinite(value)
+    ) {
+
+        return "--";
+
+    }
+
+
+    const knots =
+        value *
+        1.94384;
+
+
+    return (
+        Math.round(
+            knots
+        ) +
+        " kt"
+    );
+
+}
+
+
+// ============================================================
+// HEADING FORMAT
+// ============================================================
+
+function formatHeading(
+    heading
+) {
+
+    if (
+        heading === null ||
+        heading === undefined ||
+        heading === ""
+    ) {
+
+        return "--";
+
+    }
+
+
+    let value =
+        Number(
+            heading
+        );
+
+
+    if (
+        !Number.isFinite(value)
+    ) {
+
+        return "--";
+
+    }
+
+
+    value =
+        (
+            value %
+            360 +
+            360
+        ) %
+        360;
+
+
+    return (
+        Math.round(
+            value
+        )
+        .toString()
+        .padStart(
+            3,
+            "0"
+        ) +
+        "°"
+    );
+
+}
+
+
+// ============================================================
 // STATUS CLASS
-// ==================================================
+// ============================================================
 
-function getStatusClass(status) {
+function getStatusClass(
+    status
+) {
 
-    if (status === "NORMAL") {
+    status =
+        String(
+            status ||
+            "NORMAL"
+        )
+        .toUpperCase();
+
+
+    if (
+        status === "NORMAL"
+    ) {
 
         return "status-normal";
 
     }
 
-    if (status === "MONITOR") {
+
+    if (
+        status === "MONITOR"
+    ) {
 
         return "status-monitor";
 
     }
+
 
     return "status-anomaly";
 
 }
 
 
-// ==================================================
-// RECEIVE CONFIRMATION FROM PYTHON
-// ==================================================
+// ============================================================
+// NUMBER HELPER
+// ============================================================
 
-ui.on_message(
-    "aircraft_selected",
-    message => {
+function getNumber(
+    value,
+    fallback = 0
+) {
 
-        console.log(
-            "Python confirmed:",
-            message
+    const number =
+        Number(
+            value
         );
 
+
+    if (
+        Number.isFinite(
+            number
+        )
+    ) {
+
+        return number;
+
     }
+
+
+    return fallback;
+
+}
+
+
+// ============================================================
+// NUMBER DISPLAY
+// ============================================================
+
+function formatNumber(
+    value
+) {
+
+    const number =
+        Number(
+            value
+        );
+
+
+    if (
+        !Number.isFinite(
+            number
+        )
+    ) {
+
+        return "--";
+
+    }
+
+
+    return number.toFixed(
+        2
+    );
+
+}
+
+
+// ============================================================
+// UPDATE ELEMENT IF IT EXISTS
+// ============================================================
+
+function updateElementIfExists(
+    id,
+    value
+) {
+
+    const element =
+        document.getElementById(
+            id
+        );
+
+
+    if (element) {
+
+        element.textContent =
+            value;
+
+    }
+
+}
+
+
+// ============================================================
+// HTML ESCAPE
+// ============================================================
+
+function escapeHTML(
+    value
+) {
+
+    return String(
+        value
+    )
+    .replace(
+        /&/g,
+        "&amp;"
+    )
+    .replace(
+        /</g,
+        "&lt;"
+    )
+    .replace(
+        />/g,
+        "&gt;"
+    )
+    .replace(
+        /"/g,
+        "&quot;"
+    )
+    .replace(
+        /'/g,
+        "&#039;"
+    );
+
+}
+
+
+// ============================================================
+// INITIAL MESSAGE
+// ============================================================
+
+console.log(
+    "SkyGuardian LIVE app.js loaded successfully."
+);
+
+console.log(
+    "Waiting for aircraft_update messages..."
 );

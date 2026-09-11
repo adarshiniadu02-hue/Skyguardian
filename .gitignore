@@ -7,3 +7,17 @@ __pycache__/
 venv/
 node_modules/
 .DS_Store
+
+# SkyGuardian generated/runtime data
+.cache/
+data/live/
+data/raw/
+data/processed/
+
+# Local large/tool artifacts
+vscode.deb
+
+# readsb generated build artifacts
+readsb/*.o
+readsb/readsb
+readsb/viewadsb
