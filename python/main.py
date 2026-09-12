@@ -26,7 +26,17 @@ print("=" * 70)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-FUSION_FILE = BASE_DIR / "data/live/realtime_fusion_results.json"
+# Final AI fusion output
+FUSION_FILE = (
+    BASE_DIR
+    / "data/live/realtime_fusion_results.json"
+)
+
+# Aviation-enriched aircraft data produced by realtime_mapper.py
+AVIATION_FILE = (
+    BASE_DIR
+    / "data/live/skyguardian_aircraft.json"
+)
 
 
 # ============================================================
@@ -57,51 +67,188 @@ ui = WebUI()
 
 def safe_float(value, default=0.0):
     """Safely convert a value to float."""
+
     try:
+
         if value is None:
             return default
 
         return float(value)
 
-    except (ValueError, TypeError):
+    except (
+        ValueError,
+        TypeError
+    ):
+
         return default
 
 
 def safe_int(value, default=0):
     """Safely convert a value to int."""
+
     try:
+
         if value is None:
             return default
 
         return int(value)
 
-    except (ValueError, TypeError):
+    except (
+        ValueError,
+        TypeError
+    ):
+
         return default
 
 
-def read_fusion_results():
-    """Read the latest fusion-engine output."""
+# ============================================================
+# READ JSON
+# ============================================================
+
+def read_json_file(path):
+    """
+    Read a JSON file safely.
+    """
 
     try:
-        with open(FUSION_FILE, "r") as f:
+
+        with open(
+            path,
+            "r"
+        ) as f:
+
             return json.load(f)
 
     except FileNotFoundError:
+
         return None
 
     except json.JSONDecodeError:
+
         return None
 
     except Exception as e:
-        print(f"[WEBUI] Read error: {e}", flush=True)
+
+        print(
+            f"[WEBUI] Read error {path}: {e}",
+            flush=True
+        )
+
         return None
+
+
+# ============================================================
+# READ FUSION RESULTS
+# ============================================================
+
+def read_fusion_results():
+    """
+    Read the latest fusion-engine output.
+    """
+
+    return read_json_file(
+        FUSION_FILE
+    )
+
+
+# ============================================================
+# READ AVIATION DATA
+# ============================================================
+
+def read_aviation_data():
+    """
+    Read the latest aviation-enriched aircraft data
+    produced by realtime_mapper.py.
+    """
+
+    return read_json_file(
+        AVIATION_FILE
+    )
+
+
+# ============================================================
+# BUILD AVIATION LOOKUP
+# ============================================================
+
+def build_aviation_lookup(data):
+    """
+    Build:
+
+        ICAO -> aviation metadata
+
+    from skyguardian_aircraft.json.
+
+    This allows the dashboard to preserve aviation
+    enrichment even though the current fusion engine
+    does not copy the aviation object into its output.
+    """
+
+    lookup = {}
+
+    if not isinstance(
+        data,
+        dict
+    ):
+
+        return lookup
+
+    aircraft_list = data.get(
+        "aircraft",
+        []
+    )
+
+    if not isinstance(
+        aircraft_list,
+        list
+    ):
+
+        return lookup
+
+    for aircraft in aircraft_list:
+
+        if not isinstance(
+            aircraft,
+            dict
+        ):
+
+            continue
+
+        icao = aircraft.get(
+            "icao"
+        )
+
+        if not icao:
+
+            continue
+
+        icao = str(
+            icao
+        ).strip().upper()
+
+        aviation = aircraft.get(
+            "aviation"
+        )
+
+        if not isinstance(
+            aviation,
+            dict
+        ):
+
+            aviation = {}
+
+        lookup[icao] = aviation
+
+    return lookup
 
 
 # ============================================================
 # DISTANCE / RADAR COORDINATES
 # ============================================================
 
-def calculate_xy(latitude, longitude):
+def calculate_xy(
+    latitude,
+    longitude
+):
     """
     Convert latitude/longitude into approximate
     local X/Y coordinates in kilometers.
@@ -110,21 +257,50 @@ def calculate_xy(latitude, longitude):
     Y = north/south
     """
 
-    lat = safe_float(latitude)
-    lon = safe_float(longitude)
+    lat = safe_float(
+        latitude
+    )
 
-    lat_diff = lat - RECEIVER_LAT
-    lon_diff = lon - RECEIVER_LON
+    lon = safe_float(
+        longitude
+    )
+
+    lat_diff = (
+        lat
+        -
+        RECEIVER_LAT
+    )
+
+    lon_diff = (
+        lon
+        -
+        RECEIVER_LON
+    )
 
     # Approximate km per degree
     km_per_lat = 111.32
 
-    km_per_lon = 111.32 * math.cos(
-        math.radians(RECEIVER_LAT)
+    km_per_lon = (
+        111.32
+        *
+        math.cos(
+            math.radians(
+                RECEIVER_LAT
+            )
+        )
     )
 
-    x = lon_diff * km_per_lon
-    y = lat_diff * km_per_lat
+    x = (
+        lon_diff
+        *
+        km_per_lon
+    )
+
+    y = (
+        lat_diff
+        *
+        km_per_lat
+    )
 
     return x, y
 
@@ -133,7 +309,9 @@ def calculate_xy(latitude, longitude):
 # ALTITUDE NORMALIZATION
 # ============================================================
 
-def get_altitude_m(aircraft):
+def get_altitude_m(
+    aircraft
+):
     """
     Return altitude in meters.
 
@@ -143,23 +321,38 @@ def get_altitude_m(aircraft):
         altitude
     """
 
-    if aircraft.get("altitude_m") is not None:
+    if aircraft.get(
+        "altitude_m"
+    ) is not None:
+
         return safe_float(
-            aircraft.get("altitude_m")
+            aircraft.get(
+                "altitude_m"
+            )
         )
 
-    if aircraft.get("altitude_ft") is not None:
-        return safe_float(
-            aircraft.get("altitude_ft")
-        ) * 0.3048
+    if aircraft.get(
+        "altitude_ft"
+    ) is not None:
+
+        return (
+            safe_float(
+                aircraft.get(
+                    "altitude_ft"
+                )
+            )
+            *
+            0.3048
+        )
 
     altitude = safe_float(
-        aircraft.get("altitude"),
-        0.0
+        aircraft.get(
+            "altitude",
+            0.0
+        )
     )
 
-    # If the fusion engine already provides altitude
-    # without a unit, assume meters.
+    # Fusion engine's generic altitude field is meters.
     return altitude
 
 
@@ -167,7 +360,9 @@ def get_altitude_m(aircraft):
 # SPEED NORMALIZATION
 # ============================================================
 
-def get_speed_mps(aircraft):
+def get_speed_mps(
+    aircraft
+):
     """
     Return speed in meters/second.
 
@@ -177,44 +372,124 @@ def get_speed_mps(aircraft):
         speed
     """
 
-    if aircraft.get("speed_mps") is not None:
+    if aircraft.get(
+        "speed_mps"
+    ) is not None:
+
         return safe_float(
-            aircraft.get("speed_mps")
+            aircraft.get(
+                "speed_mps"
+            )
         )
 
-    if aircraft.get("speed_kt") is not None:
-        return safe_float(
-            aircraft.get("speed_kt")
-        ) * 0.514444
+    if aircraft.get(
+        "speed_kt"
+    ) is not None:
+
+        return (
+            safe_float(
+                aircraft.get(
+                    "speed_kt"
+                )
+            )
+            *
+            0.514444
+        )
 
     return safe_float(
-        aircraft.get("speed"),
-        0.0
+        aircraft.get(
+            "speed",
+            0.0
+        )
     )
+
+
+# ============================================================
+# AVIATION VALUE HELPER
+# ============================================================
+
+def aviation_value(
+    aviation,
+    key,
+    default="--"
+):
+    """
+    Safely retrieve a value from the aviation metadata.
+    """
+
+    if not isinstance(
+        aviation,
+        dict
+    ):
+
+        return default
+
+    value = aviation.get(
+        key
+    )
+
+    if value is None:
+
+        return default
+
+    if isinstance(
+        value,
+        str
+    ):
+
+        value = value.strip()
+
+        if not value:
+
+            return default
+
+    return value
 
 
 # ============================================================
 # BUILD DASHBOARD AIRCRAFT OBJECT
 # ============================================================
 
-def convert_aircraft(aircraft):
+def convert_aircraft(
+    aircraft,
+    aviation_lookup=None
+):
     """
     Convert fusion-engine aircraft data into the
     format expected by the SkyGuardian dashboard.
+
+    Aviation enrichment is merged from
+    skyguardian_aircraft.json using ICAO.
     """
 
+    if aviation_lookup is None:
+
+        aviation_lookup = {}
+
+    # --------------------------------------------------------
+    # Position
+    # --------------------------------------------------------
+
     latitude = safe_float(
-        aircraft.get("latitude")
+        aircraft.get(
+            "latitude"
+        )
     )
 
     longitude = safe_float(
-        aircraft.get("longitude")
+        aircraft.get(
+            "longitude"
+        )
     )
 
     x, y = calculate_xy(
         latitude,
         longitude
     )
+
+    # --------------------------------------------------------
+    # Flight data
+    # --------------------------------------------------------
 
     altitude_m = get_altitude_m(
         aircraft
@@ -224,8 +499,17 @@ def convert_aircraft(aircraft):
         aircraft
     )
 
-    altitude_ft = altitude_m / 0.3048
-    speed_kt = speed_mps / 0.514444
+    altitude_ft = (
+        altitude_m
+        /
+        0.3048
+    )
+
+    speed_kt = (
+        speed_mps
+        /
+        0.514444
+    )
 
     # --------------------------------------------------------
     # Identity
@@ -236,9 +520,92 @@ def convert_aircraft(aircraft):
         ""
     )
 
+    if icao:
+
+        icao = str(
+            icao
+        ).strip().upper()
+
     callsign = aircraft.get(
         "callsign",
         ""
+    )
+
+    # --------------------------------------------------------
+    # Aviation enrichment
+    # --------------------------------------------------------
+
+    aviation = aviation_lookup.get(
+        icao,
+        {}
+    )
+
+    if not isinstance(
+        aviation,
+        dict
+    ):
+
+        aviation = {}
+
+    # --------------------------------------------------------
+    # Support possible alternate aviation field names
+    # --------------------------------------------------------
+
+    registration = aviation_value(
+        aviation,
+        "registration"
+    )
+
+    country = aviation_value(
+        aviation,
+        "country"
+    )
+
+    typecode = aviation_value(
+        aviation,
+        "typecode"
+    )
+
+    aircraft_name = aviation_value(
+        aviation,
+        "aircraft_name"
+    )
+
+    # Current mapper uses "airline".
+    airline = aviation_value(
+        aviation,
+        "airline"
+    )
+
+    # Future/alternate mapper field.
+    operator = aviation_value(
+        aviation,
+        "operator",
+        airline
+    )
+
+    # Future/alternate mapper field.
+    aircraft_type = aviation_value(
+        aviation,
+        "aircraft_type",
+        aircraft_name
+    )
+
+    nearest_airport = aviation.get(
+        "nearest_airport",
+        {}
+    )
+
+    if not isinstance(
+        nearest_airport,
+        dict
+    ):
+
+        nearest_airport = {}
+
+    route_context = aviation_value(
+        aviation,
+        "route_context"
     )
 
     # --------------------------------------------------------
@@ -392,17 +759,57 @@ def convert_aircraft(aircraft):
 
     return {
 
+        # ====================================================
         # Identity
+        # ====================================================
+
         "icao": icao,
         "callsign": callsign,
 
+        # ====================================================
+        # Aviation enrichment
+        # ====================================================
+
+        "registration": registration,
+        "country": country,
+        "typecode": typecode,
+
+        # Frontend-friendly names
+        "aircraft_name": aircraft_name,
+        "aircraft_type": aircraft_type,
+
+        "airline": airline,
+        "operator": operator,
+
+        "nearest_airport": nearest_airport,
+        "route_context": route_context,
+
+        # Complete nested aviation object
+        "aviation": {
+            "registration": registration,
+            "country": country,
+            "typecode": typecode,
+            "aircraft_name": aircraft_name,
+            "aircraft_type": aircraft_type,
+            "airline": airline,
+            "operator": operator,
+            "nearest_airport": nearest_airport,
+            "route_context": route_context
+        },
+
+        # ====================================================
         # Position
+        # ====================================================
+
         "latitude": latitude,
         "longitude": longitude,
         "x": x,
         "y": y,
 
+        # ====================================================
         # Flight data
+        # ====================================================
+
         "altitude": altitude_m,
         "altitude_m": altitude_m,
         "altitude_ft": altitude_ft,
@@ -418,36 +825,84 @@ def convert_aircraft(aircraft):
 
         "distance_nm": distance_nm,
 
+        # ====================================================
         # Fusion
+        # ====================================================
+
         "risk": final_score,
         "final_score": final_score,
         "risk_level": risk_level,
         "status": risk_level,
 
+        # ====================================================
         # Rule engine
+        # ====================================================
+
         "rule_score": rule_score,
 
+        "rule_reasons": aircraft.get(
+            "rule_reasons",
+            []
+        ),
+
+        # ====================================================
         # Machine learning
+        # ====================================================
+
         "ml_score": ml_score,
         "ml_anomaly_score": ml_score,
+
         "ml_class": ml_classification,
         "ml_classification": ml_classification,
+
         "ml_available": ml_available,
 
+        "ml_decision": aircraft.get(
+            "ml_decision"
+        ),
+
+        "ml_prediction": aircraft.get(
+            "ml_prediction"
+        ),
+
+        # ====================================================
+        # Fusion indicators
+        # ====================================================
+
+        "fusion_indicators": aircraft.get(
+            "fusion_indicators",
+            []
+        ),
+
+        # ====================================================
         # Explanation
+        # ====================================================
+
         "explanation": explanation,
         "anomaly_explanation": explanation,
 
+        # ====================================================
         # Trajectory features
+        # ====================================================
+
         "distance_from_previous_m": distance_previous,
+
         "time_delta_s": time_delta,
+
         "altitude_change_m": altitude_change,
+
         "speed_change_mps": speed_change,
+
         "heading_change_deg": heading_change,
+
         "calculated_speed_mps": calculated_speed,
+
         "acceleration_mps2": acceleration,
 
+        # ====================================================
         # Tracker state
+        # ====================================================
+
         "position_updated": aircraft.get(
             "position_updated",
             True
@@ -458,6 +913,14 @@ def convert_aircraft(aircraft):
                 "history_length",
                 0
             )
+        ),
+
+        # ====================================================
+        # Timestamp
+        # ====================================================
+
+        "timestamp": aircraft.get(
+            "timestamp"
         )
     }
 
@@ -466,12 +929,18 @@ def convert_aircraft(aircraft):
 # BUILD COMPLETE DASHBOARD PAYLOAD
 # ============================================================
 
-def build_dashboard_payload(data):
+def build_dashboard_payload(
+    data,
+    aviation_data=None
+):
     """
     Convert fusion-engine JSON into the WebUI payload.
+
+    Aviation metadata is merged from the mapper output.
     """
 
     if data is None:
+
         return {
             "timestamp": time.time(),
             "aircraft_count": 0,
@@ -483,20 +952,41 @@ def build_dashboard_payload(data):
         []
     )
 
-    # Protect against malformed fusion data
-    if not isinstance(aircraft_list, list):
+    if not isinstance(
+        aircraft_list,
+        list
+    ):
+
         aircraft_list = []
+
+    # --------------------------------------------------------
+    # Build aviation lookup
+    # --------------------------------------------------------
+
+    aviation_lookup = build_aviation_lookup(
+        aviation_data
+    )
 
     dashboard_aircraft = []
 
+    # --------------------------------------------------------
+    # Convert every fusion aircraft
+    # --------------------------------------------------------
+
     for aircraft in aircraft_list:
 
-        if not isinstance(aircraft, dict):
+        if not isinstance(
+            aircraft,
+            dict
+        ):
+
             continue
 
         try:
+
             converted = convert_aircraft(
-                aircraft
+                aircraft,
+                aviation_lookup
             )
 
             dashboard_aircraft.append(
@@ -504,12 +994,14 @@ def build_dashboard_payload(data):
             )
 
         except Exception as e:
+
             print(
                 f"[WEBUI] Aircraft conversion error: {e}",
                 flush=True
             )
 
     return {
+
         "timestamp": data.get(
             "timestamp",
             time.time()
@@ -527,12 +1019,15 @@ def build_dashboard_payload(data):
 # SEND DATA TO WEB UI
 # ============================================================
 
-def send_dashboard_update(payload):
+def send_dashboard_update(
+    payload
+):
     """
     Send the latest aircraft state to the frontend.
     """
 
     try:
+
         ui.send_message(
             "aircraft_update",
             payload
@@ -541,6 +1036,7 @@ def send_dashboard_update(payload):
         return True
 
     except Exception as e:
+
         print(
             f"[WEBUI] Send error: {e}",
             flush=True
@@ -555,13 +1051,17 @@ def send_dashboard_update(payload):
 
 def main():
     """
-    Continuously read fusion results and update
-    the SkyGuardian dashboard.
+    Continuously read fusion results and aviation
+    enrichment, then update the SkyGuardian dashboard.
     """
 
     print()
     print("Fusion input:")
     print(FUSION_FILE)
+
+    print()
+    print("Aviation input:")
+    print(AVIATION_FILE)
 
     print()
     print("Receiver:")
@@ -587,12 +1087,12 @@ def main():
         try:
 
             # ------------------------------------------------
-            # Read latest fusion data
+            # Read fusion data
             # ------------------------------------------------
 
-            data = read_fusion_results()
+            fusion_data = read_fusion_results()
 
-            if data is None:
+            if fusion_data is None:
 
                 print(
                     "[WEBUI] Waiting for fusion results...",
@@ -606,11 +1106,18 @@ def main():
                 continue
 
             # ------------------------------------------------
+            # Read aviation enrichment
+            # ------------------------------------------------
+
+            aviation_data = read_aviation_data()
+
+            # ------------------------------------------------
             # Build dashboard payload
             # ------------------------------------------------
 
             payload = build_dashboard_payload(
-                data
+                fusion_data,
+                aviation_data
             )
 
             # ------------------------------------------------
@@ -635,6 +1142,7 @@ def main():
             )
 
             risk_counts = {
+
                 "NORMAL": 0,
                 "MONITOR": 0,
                 "ANOMALY": 0
@@ -653,22 +1161,48 @@ def main():
                 ).upper()
 
                 if risk in risk_counts:
-                    risk_counts[risk] += 1
+
+                    risk_counts[
+                        risk
+                    ] += 1
 
             # ------------------------------------------------
-            # Print only when timestamp changes
+            # Print when timestamp changes
             # ------------------------------------------------
 
             if timestamp != last_timestamp:
 
                 print(
-                    f"[WEBUI] Aircraft: {aircraft_count:3d} | "
+                    f"[WEBUI] "
+                    f"Aircraft: {aircraft_count:3d} | "
                     f"Normal: {risk_counts['NORMAL']:3d} | "
                     f"Monitor: {risk_counts['MONITOR']:3d} | "
                     f"Anomaly: {risk_counts['ANOMALY']:3d} | "
                     f"Sent: {sent}",
                     flush=True
                 )
+
+                # ------------------------------------------------
+                # Print aviation information for debugging
+                # ------------------------------------------------
+
+                for aircraft in payload.get(
+                    "aircraft",
+                    []
+                ):
+
+                    print(
+                        f"[WEBUI] "
+                        f"{aircraft.get('callsign', ''):<8} "
+                        f"{aircraft.get('icao', '')} | "
+                        f"REG="
+                        f"{aircraft.get('registration', '--')} | "
+                        f"TYPE="
+                        f"{aircraft.get('typecode', '--')} | "
+                        f"AIRLINE="
+                        f"{aircraft.get('airline', '--')}",
+                        flush=True
+                    )
 
                 last_timestamp = timestamp
 
@@ -679,6 +1213,7 @@ def main():
         except KeyboardInterrupt:
 
             print()
+
             print(
                 "SkyGuardian dashboard stopped.",
                 flush=True
@@ -707,13 +1242,11 @@ if __name__ == "__main__":
     try:
 
         print()
-        print("Starting SkyGuardian...")
+        print(
+            "Starting SkyGuardian..."
+        )
         print()
 
-        # IMPORTANT:
-        # Arduino AppController is an object, not a callable.
-        # App.run() starts registered bricks such as WebUI
-        # and executes the user loop.
         App.run(
             user_loop=main
         )

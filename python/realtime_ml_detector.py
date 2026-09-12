@@ -51,6 +51,14 @@ def read_trajectory():
     except (FileNotFoundError, json.JSONDecodeError):
         return None
 
+    except Exception as e:
+        print(
+            f"\n[ML] Error reading trajectory: {e}",
+            flush=True
+        )
+
+        return None
+
 
 # ============================================================================
 # LOAD ISOLATION FOREST MODEL
@@ -60,38 +68,50 @@ def load_model():
     """
     Load the Isolation Forest model.
 
-    The saved .joblib file contains a dictionary:
+    The saved .joblib file may contain either:
+
+        IsolationForest(...)
+
+    or:
 
         {
             "model": IsolationForest(...),
             "features": [...]
         }
-
-    Therefore we extract the actual model from the
-    dictionary before using predict().
     """
 
     if not MODEL_FILE.exists():
+
         raise FileNotFoundError(
             f"Isolation Forest model not found: {MODEL_FILE}"
         )
 
-    print(f"Loading model: {MODEL_FILE}")
+    print(
+        f"Loading model: {MODEL_FILE}",
+        flush=True
+    )
 
-    saved_object = joblib.load(MODEL_FILE)
+    saved_object = joblib.load(
+        MODEL_FILE
+    )
 
     # ------------------------------------------------------------
     # Model saved inside a dictionary
     # ------------------------------------------------------------
 
-    if isinstance(saved_object, dict):
+    if isinstance(
+        saved_object,
+        dict
+    ):
 
         print(
-            f"Model container keys: "
-            f"{list(saved_object.keys())}"
+            "Model container keys: "
+            f"{list(saved_object.keys())}",
+            flush=True
         )
 
         if "model" not in saved_object:
+
             raise ValueError(
                 "Model file is a dictionary, but it does not "
                 "contain a 'model' key."
@@ -99,15 +119,16 @@ def load_model():
 
         model = saved_object["model"]
 
-        # Display stored feature information if available
         if "features" in saved_object:
+
             print(
-                f"Stored features: "
-                f"{saved_object['features']}"
+                "Stored features: "
+                f"{saved_object['features']}",
+                flush=True
             )
 
     # ------------------------------------------------------------
-    # Directly saved model
+    # Direct model
     # ------------------------------------------------------------
 
     else:
@@ -118,18 +139,26 @@ def load_model():
     # Validate model
     # ------------------------------------------------------------
 
-    if not hasattr(model, "predict"):
+    if not hasattr(
+        model,
+        "predict"
+    ):
+
         raise TypeError(
             "Loaded object is not a usable ML model: "
             f"{type(model)}"
         )
 
     print(
-        f"Model type: "
-        f"{type(model).__name__}"
+        "Model type: "
+        f"{type(model).__name__}",
+        flush=True
     )
 
-    print("Model loaded successfully.")
+    print(
+        "Model loaded successfully.",
+        flush=True
+    )
 
     return model
 
@@ -138,33 +167,39 @@ def load_model():
 # CONVERT ISOLATION FOREST DECISION VALUE TO 0–100 SCORE
 # ============================================================================
 
-def calculate_ml_score(decision_value):
+def calculate_ml_score(
+    decision_value
+):
     """
     Convert Isolation Forest decision_function() output
-    into an easy-to-understand 0–100 anomaly score.
+    into a relative 0–100 anomaly visualization score.
 
-    Important:
+    This is NOT a probability or calibrated confidence value.
 
-    This is a RELATIVE anomaly visualization score.
+    More positive decision value
+        -> more normal
 
-    It is NOT:
-        - a probability
-        - a confidence percentage
-        - a calibrated risk score
-
-    Isolation Forest interpretation:
-
-        More positive decision value
-            -> more normal
-
-        More negative decision value
-            -> more anomalous
+    More negative decision value
+        -> more anomalous
     """
 
-    score = 50.0 - (decision_value * 100.0)
+    score = (
+        50.0
+        -
+        (
+            decision_value
+            *
+            100.0
+        )
+    )
 
-    # Keep score within 0–100
-    score = max(0.0, min(100.0, score))
+    score = max(
+        0.0,
+        min(
+            100.0,
+            score
+        )
+    )
 
     return score
 
@@ -173,7 +208,10 @@ def calculate_ml_score(decision_value):
 # CLASSIFY ML RESULT
 # ============================================================================
 
-def classify_ml(prediction, ml_score):
+def classify_ml(
+    prediction,
+    ml_score
+):
     """
     Convert Isolation Forest prediction + score
     into a human-readable classification.
@@ -190,11 +228,13 @@ def classify_ml(prediction, ml_score):
     if prediction == -1:
 
         if ml_score >= 80:
+
             return "ANOMALY"
 
         return "MONITOR"
 
     if ml_score >= 70:
+
         return "MONITOR"
 
     return "NORMAL"
@@ -204,17 +244,15 @@ def classify_ml(prediction, ml_score):
 # EXPLAIN IMPORTANT FEATURES
 # ============================================================================
 
-def explain_features(aircraft):
+def explain_features(
+    aircraft
+):
     """
     Generate human-readable explanations for unusual
     trajectory characteristics.
 
-    These explanations are NOT the Isolation Forest's
-    internal explanation.
-
-    They are simple rule-based indicators that help
-    the dashboard explain why an aircraft may deserve
-    attention.
+    These are dashboard indicators and are not internal
+    explanations generated by the Isolation Forest.
     """
 
     explanations = []
@@ -224,6 +262,7 @@ def explain_features(aircraft):
     # ------------------------------------------------------------
 
     try:
+
         distance = abs(
             float(
                 aircraft.get(
@@ -232,10 +271,16 @@ def explain_features(aircraft):
                 )
             )
         )
-    except (ValueError, TypeError):
+
+    except (
+        ValueError,
+        TypeError
+    ):
+
         distance = 0.0
 
     try:
+
         time_delta = abs(
             float(
                 aircraft.get(
@@ -244,10 +289,16 @@ def explain_features(aircraft):
                 )
             )
         )
-    except (ValueError, TypeError):
+
+    except (
+        ValueError,
+        TypeError
+    ):
+
         time_delta = 0.0
 
     try:
+
         altitude_change = abs(
             float(
                 aircraft.get(
@@ -256,10 +307,16 @@ def explain_features(aircraft):
                 )
             )
         )
-    except (ValueError, TypeError):
+
+    except (
+        ValueError,
+        TypeError
+    ):
+
         altitude_change = 0.0
 
     try:
+
         speed_change = abs(
             float(
                 aircraft.get(
@@ -268,10 +325,16 @@ def explain_features(aircraft):
                 )
             )
         )
-    except (ValueError, TypeError):
+
+    except (
+        ValueError,
+        TypeError
+    ):
+
         speed_change = 0.0
 
     try:
+
         heading_change = abs(
             float(
                 aircraft.get(
@@ -280,10 +343,16 @@ def explain_features(aircraft):
                 )
             )
         )
-    except (ValueError, TypeError):
+
+    except (
+        ValueError,
+        TypeError
+    ):
+
         heading_change = 0.0
 
     try:
+
         calculated_speed = abs(
             float(
                 aircraft.get(
@@ -292,10 +361,16 @@ def explain_features(aircraft):
                 )
             )
         )
-    except (ValueError, TypeError):
+
+    except (
+        ValueError,
+        TypeError
+    ):
+
         calculated_speed = 0.0
 
     try:
+
         acceleration = abs(
             float(
                 aircraft.get(
@@ -304,7 +379,12 @@ def explain_features(aircraft):
                 )
             )
         )
-    except (ValueError, TypeError):
+
+    except (
+        ValueError,
+        TypeError
+    ):
+
         acceleration = 0.0
 
     # ------------------------------------------------------------
@@ -312,36 +392,43 @@ def explain_features(aircraft):
     # ------------------------------------------------------------
 
     if calculated_speed > 300:
+
         explanations.append(
             "HIGH_CALCULATED_SPEED"
         )
 
     if acceleration > 10:
+
         explanations.append(
             "HIGH_ACCELERATION"
         )
 
     if speed_change > 50:
+
         explanations.append(
             "LARGE_SPEED_CHANGE"
         )
 
     if heading_change > 90:
+
         explanations.append(
             "LARGE_HEADING_CHANGE"
         )
 
     if altitude_change > 3000:
+
         explanations.append(
             "LARGE_ALTITUDE_CHANGE"
         )
 
     if time_delta > 60:
+
         explanations.append(
             "LARGE_TIME_GAP"
         )
 
     if distance > 10000:
+
         explanations.append(
             "LARGE_POSITION_CHANGE"
         )
@@ -351,6 +438,7 @@ def explain_features(aircraft):
     # ------------------------------------------------------------
 
     if not explanations:
+
         explanations.append(
             "NO_MAJOR_RULE_TRIGGER"
         )
@@ -362,21 +450,26 @@ def explain_features(aircraft):
 # PROCESS ONE AIRCRAFT
 # ============================================================================
 
-def process_aircraft(model, aircraft):
+def process_aircraft(
+    model,
+    aircraft
+):
     """
-    Run the Isolation Forest on one newly updated aircraft.
+    Run the Isolation Forest on the latest trajectory
+    observation for one aircraft.
+
+    IMPORTANT:
+    We intentionally do NOT require position_updated=True.
+
+    The trajectory tracker may legitimately report
+    position_updated=False when the latest readsb snapshot
+    contains no new position. The latest aircraft state is
+    still valid and should remain visible to the AI/fusion
+    pipeline.
+
+    Duplicate observations are prevented in main() using
+    the observation timestamp.
     """
-
-    # ------------------------------------------------------------
-    # Only process new positions
-    # ------------------------------------------------------------
-
-    if not aircraft.get("position_updated", False):
-
-        return {
-            "ml_available": False,
-            "reason": "NO_NEW_POSITION"
-        }
 
     # ------------------------------------------------------------
     # Prepare feature vector
@@ -392,23 +485,34 @@ def process_aircraft(model, aircraft):
         )
 
         try:
-            value = float(value)
 
-        except (ValueError, TypeError):
+            value = float(
+                value
+            )
+
+        except (
+            ValueError,
+            TypeError
+        ):
+
             value = 0.0
 
+        # --------------------------------------------------------
         # Prevent NaN / Infinity from reaching sklearn
-        if not np.isfinite(value):
+        # --------------------------------------------------------
+
+        if not np.isfinite(
+            value
+        ):
+
             value = 0.0
 
-        feature_values.append(value)
+        feature_values.append(
+            value
+        )
 
     # ------------------------------------------------------------
     # Create ML input matrix
-    #
-    # Shape:
-    #
-    #     1 aircraft × 7 features
     # ------------------------------------------------------------
 
     X = np.array(
@@ -421,7 +525,9 @@ def process_aircraft(model, aircraft):
     # ------------------------------------------------------------
 
     prediction = int(
-        model.predict(X)[0]
+        model.predict(
+            X
+        )[0]
     )
 
     # ------------------------------------------------------------
@@ -429,7 +535,9 @@ def process_aircraft(model, aircraft):
     # ------------------------------------------------------------
 
     decision_value = float(
-        model.decision_function(X)[0]
+        model.decision_function(
+            X
+        )[0]
     )
 
     # ------------------------------------------------------------
@@ -482,10 +590,12 @@ def process_aircraft(model, aircraft):
         "explanations": explanations,
 
         "features": {
+
             name: round(
                 value,
                 6
             )
+
             for name, value in zip(
                 FEATURE_NAMES,
                 feature_values
@@ -501,9 +611,11 @@ def process_aircraft(model, aircraft):
 def main():
 
     print("=" * 72)
+
     print(
         "SKYGUARDIAN — REALTIME EDGE-AI ML DETECTOR"
     )
+
     print("=" * 72)
 
     print(
@@ -528,22 +640,37 @@ def main():
     # Load trained model
     # ------------------------------------------------------------
 
-    model = load_model()
+    try:
+
+        model = load_model()
+
+    except Exception as e:
+
+        print(
+            f"[ML] Fatal model error: {e}",
+            flush=True
+        )
+
+        raise
 
     print("-" * 72)
 
     print(
-        "Waiting for live trajectory data..."
+        "Waiting for live trajectory data...",
+        flush=True
     )
 
     print()
 
     # ------------------------------------------------------------
-    # Remember the last processed timestamp
+    # Remember the last processed observation timestamp
     # for every aircraft.
     #
-    # This prevents running the ML model repeatedly
-    # on the same trajectory observation.
+    # This replaces the old position_updated gate.
+    #
+    # The ML model is therefore run whenever the aircraft has
+    # a genuinely new trajectory observation, regardless of
+    # whether the current observation changed position.
     # ------------------------------------------------------------
 
     last_processed = {}
@@ -571,28 +698,37 @@ def main():
             []
         )
 
+        if not isinstance(
+            aircraft_list,
+            list
+        ):
+
+            aircraft_list = []
+
         # --------------------------------------------------------
         # Process every aircraft
         # --------------------------------------------------------
 
         for aircraft in aircraft_list:
 
+            if not isinstance(
+                aircraft,
+                dict
+            ):
+
+                continue
+
             icao = aircraft.get(
                 "icao"
             )
 
             if not icao:
+
                 continue
 
-            # ----------------------------------------------------
-            # Ignore aircraft without a new position
-            # ----------------------------------------------------
-
-            if not aircraft.get(
-                "position_updated",
-                False
-            ):
-                continue
+            icao = str(
+                icao
+            ).strip().upper()
 
             # ----------------------------------------------------
             # Observation timestamp
@@ -614,20 +750,40 @@ def main():
                 previous_timestamp is not None
                 and observation_timestamp == previous_timestamp
             ):
-                continue
 
-            last_processed[
-                icao
-            ] = observation_timestamp
+                continue
 
             # ----------------------------------------------------
             # Run ML detector
             # ----------------------------------------------------
 
-            result = process_aircraft(
-                model,
-                aircraft
-            )
+            try:
+
+                result = process_aircraft(
+                    model,
+                    aircraft
+                )
+
+            except Exception as e:
+
+                print(
+                    f"\n[ML] Processing error "
+                    f"{icao}: {e}",
+                    flush=True
+                )
+
+                # Do not mark this timestamp as processed
+                # if inference failed.
+                continue
+
+            # ----------------------------------------------------
+            # Mark observation as processed only after
+            # successful inference.
+            # ----------------------------------------------------
+
+            last_processed[
+                icao
+            ] = observation_timestamp
 
             # ----------------------------------------------------
             # Add aircraft information
@@ -637,7 +793,9 @@ def main():
                 observation_timestamp
             )
 
-            result["icao"] = icao
+            result["icao"] = (
+                icao
+            )
 
             result["callsign"] = (
                 aircraft.get(
@@ -715,11 +873,12 @@ def main():
 
         # --------------------------------------------------------
         # Atomic JSON write
-        #
-        # Write to temporary file first, then replace the
-        # previous output. This prevents another process
-        # from reading half-written JSON.
         # --------------------------------------------------------
+
+        OUTPUT_FILE.parent.mkdir(
+            parents=True,
+            exist_ok=True
+        )
 
         temp_file = (
             OUTPUT_FILE.with_suffix(
@@ -727,20 +886,29 @@ def main():
             )
         )
 
-        with open(
-            temp_file,
-            "w"
-        ) as f:
+        try:
 
-            json.dump(
-                output,
-                f,
-                indent=2
+            with open(
+                temp_file,
+                "w"
+            ) as f:
+
+                json.dump(
+                    output,
+                    f,
+                    indent=2
+                )
+
+            temp_file.replace(
+                OUTPUT_FILE
             )
 
-        temp_file.replace(
-            OUTPUT_FILE
-        )
+        except Exception as e:
+
+            print(
+                f"\n[ML] Error writing output: {e}",
+                flush=True
+            )
 
         # --------------------------------------------------------
         # Console output
@@ -757,37 +925,19 @@ def main():
                     f"score="
                     f"{result['ml_anomaly_score']:6.2f} "
                     f"class="
-                    f"{result['ml_classification']:<8} "
-                    f"decision="
-                    f"{result['decision_function']:.4f}"
+                    f"{result['ml_classification']:<8}",
+                    flush=True
                 )
-
-                # Print explanations when something
-                # unusual is detected.
-
-                if (
-                    result["ml_classification"]
-                    != "NORMAL"
-                ):
-
-                    print(
-                        f"     Reasons: "
-                        f"{', '.join(result['explanations'])}"
-                    )
 
         else:
 
             print(
-                f"\r[ML] Waiting | "
-                f"Aircraft: "
-                f"{len(aircraft_list):3d}",
+                "\r[ML] Aircraft: "
+                f"{len(aircraft_list):3d} | "
+                "New observations:   0",
                 end="",
                 flush=True
             )
-
-        # --------------------------------------------------------
-        # Wait before next cycle
-        # --------------------------------------------------------
 
         time.sleep(
             UPDATE_INTERVAL
@@ -795,9 +945,18 @@ def main():
 
 
 # ============================================================================
-# PROGRAM ENTRY POINT
+# ENTRY POINT
 # ============================================================================
 
 if __name__ == "__main__":
 
-    main()
+    try:
+
+        main()
+
+    except KeyboardInterrupt:
+
+        print(
+            "\n\n[ML] Stopped.",
+            flush=True
+        )
