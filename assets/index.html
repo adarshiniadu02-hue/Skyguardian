@@ -1,523 +1,233 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-
-<meta charset="UTF-8">
-
-<meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
->
-
-<title>SkyGuardian</title>
-
-<link
-    rel="stylesheet"
-    href="style.css"
->
-
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkyGuardian — Edge-AI Flight Tracking</title>
+    <link rel="stylesheet" href="style.css">
 </head>
-
-
 <body>
 
-
-<!-- =====================================================
-     HEADER
-===================================================== -->
-
-<header>
-
-    <div>
-
-        <div class="logo">
-
-            <span class="logo-icon">
-                ✈
-            </span>
-
-            <span class="logo-text">
-                SKYGUARDIAN
-            </span>
-
+<header class="topbar">
+    <div class="brand">
+        <div class="brand-icon">✈</div>
+        <div>
+            <div class="brand-name">SKYGUARDIAN</div>
+            <div class="brand-sub">EDGE-AI RESILIENT FLIGHT TRACKING</div>
         </div>
-
-        <div class="subtitle">
-            Edge-AI Resilient Flight Tracking
-        </div>
-
     </div>
 
-
-    <div class="system">
-
-        <span
-            class="system-dot"
-        ></span>
-
-        SYSTEM ONLINE
-
+    <div class="top-status">
+        <span class="status-led"></span>
+        <span>SYSTEM ONLINE</span>
+        <span class="divider"></span>
+        <span id="liveClock">--:--:--</span>
     </div>
-
 </header>
 
+<main class="page">
 
-
-<div class="container">
-
-
-<!-- =====================================================
-     SUMMARY CARDS
-===================================================== -->
-
-<section class="cards">
-
-
-    <div class="card">
-
-        <div class="card-label">
-            AIRCRAFT
+    <section class="metrics">
+        <div class="metric-card">
+            <div class="metric-title">AIRCRAFT</div>
+            <div id="aircraftCount" class="metric-value">0</div>
+            <div class="metric-caption">LIVE TRACKS</div>
         </div>
 
-        <div
-            id="aircraftCount"
-            class="card-number"
-        >
-            0
+        <div class="metric-card">
+            <div class="metric-title">ANOMALIES</div>
+            <div id="anomalyCount" class="metric-value">0</div>
+            <div class="metric-caption">AI DETECTIONS</div>
         </div>
 
-        <div class="card-sub">
-            TRACKED
+        <div class="metric-card">
+            <div class="metric-title">AI RISK</div>
+            <div id="riskScore" class="metric-value">0</div>
+            <div id="riskLevel" class="metric-caption status-normal">LOW</div>
         </div>
 
-    </div>
+        <div class="metric-card">
+            <div class="metric-title">RECEIVER</div>
+            <div id="receiverStatus" class="metric-value small">LIVE</div>
+            <div class="metric-caption">RTL-SDR / READSB</div>
+        </div>
+    </section>
 
+    <section class="workspace">
 
-    <div class="card">
+        <div class="panel radar-panel">
+            <div class="panel-head">
+                <div>
+                    <span class="eyebrow">LIVE AIRSPACE</span>
+                    <span class="panel-title">LOCAL RADAR</span>
+                </div>
+                <div class="live-badge"><span></span> LIVE</div>
+            </div>
 
-        <div class="card-label">
-            ANOMALIES
+            <div class="radar-wrap">
+                <div class="range-label r1">25 NM</div>
+                <div class="range-label r2">10 NM</div>
+                <div class="range-label r3">5 NM</div>
+
+                <div id="radar" class="radar">
+                    <div class="radar-grid"></div>
+                    <div class="ring ring-a"></div>
+                    <div class="ring ring-b"></div>
+                    <div class="ring ring-c"></div>
+                    <div class="cross cross-h"></div>
+                    <div class="cross cross-v"></div>
+                    <div class="sweep"></div>
+                    <div class="radar-center"></div>
+                </div>
+
+                <div class="radar-legend">
+                    <span><i class="legend-dot normal"></i>NORMAL</span>
+                    <span><i class="legend-dot monitor"></i>MONITOR</span>
+                    <span><i class="legend-dot anomaly"></i>ANOMALY</span>
+                </div>
+            </div>
         </div>
 
-        <div
-            id="anomalyCount"
-            class="card-number"
-        >
-            0
+        <aside class="panel aircraft-panel">
+            <div class="panel-head">
+                <div>
+                    <span class="eyebrow">TRACK DETAIL</span>
+                    <span class="panel-title">SELECTED AIRCRAFT</span>
+                </div>
+                <div id="detailStatus" class="detail-status status-normal">● NORMAL</div>
+            </div>
+
+            <div class="aircraft-hero">
+                <div class="hero-icon">✈</div>
+                <div class="hero-main">
+                    <div id="selectedAircraft" class="hero-callsign">--</div>
+                    <div id="aircraftType" class="hero-type">Aircraft type unavailable</div>
+                </div>
+                <div id="registration" class="hero-reg">--</div>
+            </div>
+
+            <div class="identity-grid">
+                <div>
+                    <span>ICAO24</span>
+                    <strong id="icao">--</strong>
+                </div>
+                <div>
+                    <span>COUNTRY</span>
+                    <strong id="country">--</strong>
+                </div>
+                <div>
+                    <span>AIRLINE</span>
+                    <strong id="airline">--</strong>
+                </div>
+                <div>
+                    <span>TYPE</span>
+                    <strong id="typecode">--</strong>
+                </div>
+            </div>
+
+            <div class="flight-grid">
+                <div class="flight-stat">
+                    <span>ALTITUDE</span>
+                    <strong id="altitude">--</strong>
+                </div>
+                <div class="flight-stat">
+                    <span>GROUND SPEED</span>
+                    <strong id="speed">--</strong>
+                </div>
+                <div class="flight-stat">
+                    <span>HEADING</span>
+                    <strong id="heading">--</strong>
+                </div>
+                <div class="flight-stat">
+                    <span>VERTICAL RATE</span>
+                    <strong id="verticalRate">--</strong>
+                </div>
+            </div>
+
+            <div class="context-card">
+                <div class="context-title">AVIATION CONTEXT</div>
+                <div class="context-row">
+                    <span>NEAREST AIRPORT</span>
+                    <strong id="nearestAirport">--</strong>
+                </div>
+                <div class="context-row">
+                    <span>DISTANCE</span>
+                    <strong id="distanceNm">--</strong>
+                </div>
+                <div class="context-row">
+                    <span>ROUTE CONTEXT</span>
+                    <strong id="routeContext">--</strong>
+                </div>
+            </div>
+
+            <div class="ai-card">
+                <div class="ai-head">
+                    <span>AI FUSION INTELLIGENCE</span>
+                    <span id="mlClass">NORMAL</span>
+                </div>
+
+                <div class="score-row">
+                    <div><span>FUSION</span><strong id="fusionScore">0</strong></div>
+                    <div><span>ML</span><strong id="mlScore">0</strong></div>
+                    <div><span>RULE</span><strong id="ruleScore">0</strong></div>
+                </div>
+
+                <div class="score-bar">
+                    <div id="fusionBar"></div>
+                </div>
+
+                <div id="anomalyExplanation" class="ai-explanation">
+                    Waiting for AI assessment...
+                </div>
+            </div>
+        </aside>
+
+    </section>
+
+    <section class="panel table-panel">
+        <div class="panel-head">
+            <div>
+                <span class="eyebrow">LIVE TRAFFIC</span>
+                <span class="panel-title">ACTIVE AIRCRAFT</span>
+            </div>
+            <span class="table-hint">CLICK A ROW TO FOCUS</span>
         </div>
 
-        <div class="card-sub">
-            DETECTED
+        <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr>
+                        <th>CALLSIGN</th>
+                        <th>ICAO24</th>
+                        <th>TYPE</th>
+                        <th>REGISTRATION</th>
+                        <th>ALTITUDE</th>
+                        <th>SPEED</th>
+                        <th>HEADING</th>
+                        <th>STATUS</th>
+                    </tr>
+                </thead>
+                <tbody id="aircraftTable"></tbody>
+            </table>
         </div>
-
-    </div>
-
-
-    <div class="card">
-
-        <div class="card-label">
-            AI RISK
-        </div>
-
-        <div
-            id="riskScore"
-            class="card-number"
-        >
-            0
-        </div>
-
-        <div
-            id="riskLevel"
-            class="card-sub"
-        >
-            LOW
-        </div>
-
-    </div>
-
-
-</section>
-
-
-
-<!-- =====================================================
-     RADAR + DETAILS
-===================================================== -->
-
-<section class="main-grid">
-
-
-<!-- =====================================================
-     RADAR
-===================================================== -->
-
-<div class="panel">
-
-    <div class="panel-header">
-
-        <span>
-            LIVE AIRSPACE
-        </span>
-
-        <span class="live">
-            ● LIVE
-        </span>
-
-    </div>
-
-
-    <div class="radar-container">
-
-
-        <div
-            id="radar"
-            class="radar"
-        >
-
-
-            <!-- Radar rings -->
-
-            <div class="ring ring-1"></div>
-
-            <div class="ring ring-2"></div>
-
-            <div class="ring ring-3"></div>
-
-
-            <!-- Crosshair -->
-
-            <div class="cross-h"></div>
-
-            <div class="cross-v"></div>
-
-
-            <!-- Diagonal lines -->
-
-            <div class="diagonal-1"></div>
-
-            <div class="diagonal-2"></div>
-
-
-            <!-- Radar sweep -->
-
-            <div class="sweep"></div>
-
-
-            <!-- Radar center -->
-
-            <div class="radar-center"></div>
-
-
-        </div>
-
-    </div>
-
-</div>
-
-
-
-<!-- =====================================================
-     SELECTED AIRCRAFT
-===================================================== -->
-
-<div class="panel details">
-
-
-    <div class="panel-header">
-
-        SELECTED AIRCRAFT
-
-    </div>
-
-
-    <div class="selected-box">
-
-        <span>
-            SELECTED
-        </span>
-
-        <strong
-            id="selectedAircraft"
-        >
-            --
-        </strong>
-
-    </div>
-
-
-    <div class="detail-row">
-
-        <span>
-            ICAO
-        </span>
-
-        <strong id="icao">
-            --
-        </strong>
-
-    </div>
-
-
-    <div class="detail-row">
-
-        <span>
-            ALTITUDE
-        </span>
-
-        <strong id="altitude">
-            --
-        </strong>
-
-    </div>
-
-
-    <div class="detail-row">
-
-        <span>
-            SPEED
-        </span>
-
-        <strong id="speed">
-            --
-        </strong>
-
-    </div>
-
-
-    <div class="detail-row">
-
-        <span>
-            HEADING
-        </span>
-
-        <strong id="heading">
-            --
-        </strong>
-
-    </div>
-
-
-    <div class="detail-row">
-
-        <span>
-            STATUS
-        </span>
-
-        <strong
-            id="flightStatus"
-        >
-            --
-        </strong>
-
-    </div>
-
-
-    <div class="help">
-
-        Select an aircraft from the radar
-        or click an aircraft row below.
-
-        <br><br>
-
-        <b>GREEN</b> = Normal
-
-        <br>
-
-        <b>ORANGE</b> = Monitor
-
-        <br>
-
-        <b>RED</b> = Anomaly
-
-    </div>
-
-
-</div>
-
-
-</section>
-
-
-
-<!-- =====================================================
-     AIRCRAFT TABLE
-===================================================== -->
-
-<section class="panel table-panel">
-
-
-    <div class="panel-header">
-
-        <span>
-            ACTIVE AIRCRAFT
-        </span>
-
-        <span>
-            CLICK ROW TO SELECT
-        </span>
-
-    </div>
-
-
-    <table>
-
-
-        <thead>
-
-            <tr>
-
-                <th>
-                    AIRCRAFT
-                </th>
-
-                <th>
-                    ALTITUDE
-                </th>
-
-                <th>
-                    SPEED
-                </th>
-
-                <th>
-                    HEADING
-                </th>
-
-                <th>
-                    STATUS
-                </th>
-
-            </tr>
-
-        </thead>
-
-
-        <tbody
-            id="aircraftTable"
-        >
-
-        </tbody>
-
-
-    </table>
-
-
-</section>
-
-
-
-<!-- =====================================================
-     SYSTEM INFORMATION
-===================================================== -->
-
-<section class="panel system-panel">
-
-
-    <div class="panel-header">
-
-        SYSTEM DATA
-
-    </div>
-
-
-    <div class="system-data">
-
-
-        <div>
-
-            <span>
-                CONNECTION
-            </span>
-
-            <strong id="connectionStatus">
-                CONNECTING
-            </strong>
-
-        </div>
-
-
-        <div>
-
-            <span>
-                DATA SOURCE
-            </span>
-
-            <strong>
-                OPEN SKY
-            </strong>
-
-        </div>
-
-
-        <div>
-
-            <span>
-                MODE
-            </span>
-
-            <strong>
-                HISTORICAL
-            </strong>
-
-        </div>
-
-
-        <div>
-
-            <span>
-                LAST UPDATE
-            </span>
-
-            <strong id="lastUpdate">
-                --
-            </strong>
-
-        </div>
-
-
-    </div>
-
-
-</section>
-
-
-
-<!-- =====================================================
-     FOOTER
-===================================================== -->
-
-<footer>
-
-    ADS-B • OPEN SKY DATA
-
-    &nbsp;&nbsp;│&nbsp;&nbsp;
-
-    EDGE AI • READY
-
-    &nbsp;&nbsp;│&nbsp;&nbsp;
-
-    OFFLINE MODE • READY
-
-</footer>
-
-
-</div>
-
-
-
-<!-- =====================================================
-     ARDUINO WEB UI
-===================================================== -->
+    </section>
+
+    <section class="system-strip panel">
+        <div><span class="system-key">RTL-SDR</span><b id="sdrHealth">ONLINE</b></div>
+        <div><span class="system-key">READSB</span><b id="readsbHealth">CONNECTED</b></div>
+        <div><span class="system-key">TRACKER</span><b>ACTIVE</b></div>
+        <div><span class="system-key">ML ENGINE</span><b>ACTIVE</b></div>
+        <div><span class="system-key">FUSION</span><b>LIVE</b></div>
+        <div><span class="system-key">LAST UPDATE</span><b id="lastUpdate">--</b></div>
+    </section>
+
+    <footer>
+        SKYGUARDIAN • LOCAL ADS-B • EDGE AI • OFFLINE AVIATION DATABASE
+    </footer>
+</main>
 
 <script src="libs/socket.io.min.js"></script>
-
 <script src="libs/arduino.js"></script>
-
 <script src="app.js"></script>
-
-
 </body>
-
 </html>
-
-
