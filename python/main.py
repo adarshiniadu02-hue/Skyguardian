@@ -5,18 +5,19 @@ import math
 import time
 from pathlib import Path
 
-from arduino.app_utils import App
+from arduino.app_utils import App, Bridge
 from arduino.app_bricks.web_ui import WebUI
 
 
 # ============================================================
 # SKYGUARDIAN
 # REALTIME FUSION → WEB DASHBOARD
+# MPU → MCU BUZZER ALERTS
 # ============================================================
 
 print("=" * 70)
 print("SKYGUARDIAN — EDGE AI FLIGHT MONITORING")
-print("REALTIME FUSION → WEBUI")
+print("REALTIME FUSION → WEBUI → MCU BUZZER")
 print("=" * 70)
 
 
@@ -26,17 +27,8 @@ print("=" * 70)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Final AI fusion output
-FUSION_FILE = (
-    BASE_DIR
-    / "data/live/realtime_fusion_results.json"
-)
-
-# Aviation-enriched aircraft data produced by realtime_mapper.py
-AVIATION_FILE = (
-    BASE_DIR
-    / "data/live/skyguardian_aircraft.json"
-)
+FUSION_FILE = BASE_DIR / "data/live/realtime_fusion_results.json"
+AVIATION_FILE = BASE_DIR / "data/live/skyguardian_aircraft.json"
 
 
 # ============================================================
@@ -55,6 +47,33 @@ UPDATE_INTERVAL = 1.0
 
 
 # ============================================================
+# BUZZER SETTINGS
+# ============================================================
+
+# MCU buzzer modes:
+#
+# 0 = OFF
+# 1 = NEW AIRCRAFT / ONE SHORT BEEP
+# 2 = MONITOR / REPEATING BEEP-BEEP
+# 3 = ANOMALY / FAST REPEATING BEEP
+
+BUZZER_OFF = 0
+BUZZER_NEW = 1
+BUZZER_MONITOR = 2
+BUZZER_ANOMALY = 3
+
+# Last persistent buzzer mode.
+last_buzzer_mode = BUZZER_OFF
+
+# Aircraft currently known to SKYGUARDIAN.
+known_aircraft = set()
+
+# Prevents aircraft already present at startup from
+# triggering NEW AIRCRAFT alarms.
+aircraft_baseline_initialized = False
+
+
+# ============================================================
 # WEB UI
 # ============================================================
 
@@ -62,24 +81,19 @@ ui = WebUI()
 
 
 # ============================================================
-# HELPERS
+# BASIC HELPERS
 # ============================================================
 
 def safe_float(value, default=0.0):
     """Safely convert a value to float."""
 
     try:
-
         if value is None:
             return default
 
         return float(value)
 
-    except (
-        ValueError,
-        TypeError
-    ):
-
+    except (ValueError, TypeError):
         return default
 
 
@@ -87,36 +101,25 @@ def safe_int(value, default=0):
     """Safely convert a value to int."""
 
     try:
-
         if value is None:
             return default
 
         return int(value)
 
-    except (
-        ValueError,
-        TypeError
-    ):
-
+    except (ValueError, TypeError):
         return default
 
 
 # ============================================================
-# READ JSON
+# READ FUSION RESULTS
 # ============================================================
 
-def read_json_file(path):
-    """
-    Read a JSON file safely.
-    """
+def read_fusion_results():
+    """Read the latest fusion-engine output."""
 
     try:
 
-        with open(
-            path,
-            "r"
-        ) as f:
-
+        with open(FUSION_FILE, "r") as f:
             return json.load(f)
 
     except FileNotFoundError:
@@ -130,25 +133,11 @@ def read_json_file(path):
     except Exception as e:
 
         print(
-            f"[WEBUI] Read error {path}: {e}",
+            f"[WEBUI] Fusion read error: {e}",
             flush=True
         )
 
         return None
-
-
-# ============================================================
-# READ FUSION RESULTS
-# ============================================================
-
-def read_fusion_results():
-    """
-    Read the latest fusion-engine output.
-    """
-
-    return read_json_file(
-        FUSION_FILE
-    )
 
 
 # ============================================================
@@ -157,40 +146,33 @@ def read_fusion_results():
 
 def read_aviation_data():
     """
-    Read the latest aviation-enriched aircraft data
-    produced by realtime_mapper.py.
+    Read aviation enrichment directly from mapper output.
+
+    Fusion does not necessarily preserve all aviation metadata,
+    so this data is merged back into the dashboard using ICAO.
     """
 
-    return read_json_file(
-        AVIATION_FILE
-    )
+    try:
 
+        with open(AVIATION_FILE, "r") as f:
+            data = json.load(f)
 
-# ============================================================
-# BUILD AVIATION LOOKUP
-# ============================================================
+    except FileNotFoundError:
 
-def build_aviation_lookup(data):
-    """
-    Build:
+        return {}
 
-        ICAO -> aviation metadata
+    except json.JSONDecodeError:
 
-    from skyguardian_aircraft.json.
+        return {}
 
-    This allows the dashboard to preserve aviation
-    enrichment even though the current fusion engine
-    does not copy the aviation object into its output.
-    """
+    except Exception as e:
 
-    lookup = {}
+        print(
+            f"[WEBUI] Aviation read error: {e}",
+            flush=True
+        )
 
-    if not isinstance(
-        data,
-        dict
-    ):
-
-        return lookup
+        return {}
 
     aircraft_list = data.get(
         "aircraft",
@@ -202,7 +184,9 @@ def build_aviation_lookup(data):
         list
     ):
 
-        return lookup
+        return {}
+
+    aviation_lookup = {}
 
     for aircraft in aircraft_list:
 
@@ -213,76 +197,276 @@ def build_aviation_lookup(data):
 
             continue
 
-        icao = aircraft.get(
-            "icao"
-        )
+        icao = str(
+            aircraft.get(
+                "icao",
+                ""
+            )
+        ).upper().strip()
 
         if not icao:
+            continue
+
+        aviation_lookup[icao] = aircraft
+
+    return aviation_lookup
+
+
+# ============================================================
+# BUZZER CONTROL
+# ============================================================
+
+def send_buzzer_mode(mode):
+    """
+    Send buzzer command to STM32 MCU through RouterBridge.
+
+    0 = OFF
+    1 = NEW AIRCRAFT
+    2 = MONITOR
+    3 = ANOMALY
+    """
+
+    try:
+
+        Bridge.call(
+            "set_buzzer_mode",
+            int(mode)
+        )
+
+        return True
+
+    except Exception as e:
+
+        print(
+            f"[BUZZER] Bridge error: {e}",
+            flush=True
+        )
+
+        return False
+
+
+def determine_persistent_buzzer_mode(aircraft_list):
+    """
+    Determine the persistent buzzer state.
+
+    Priority:
+
+        ANOMALY
+        MONITOR
+        NORMAL / OFF
+    """
+
+    anomaly_present = False
+    monitor_present = False
+
+    for aircraft in aircraft_list:
+
+        if not isinstance(
+            aircraft,
+            dict
+        ):
+
+            continue
+
+        risk_level = str(
+            aircraft.get(
+                "risk_level",
+                aircraft.get(
+                    "status",
+                    "NORMAL"
+                )
+            )
+        ).upper().strip()
+
+        if risk_level == "ANOMALY":
+
+            anomaly_present = True
+
+        elif risk_level == "MONITOR":
+
+            monitor_present = True
+
+    if anomaly_present:
+
+        return BUZZER_ANOMALY
+
+    if monitor_present:
+
+        return BUZZER_MONITOR
+
+    return BUZZER_OFF
+
+
+def update_buzzer(aircraft_list):
+    """
+    Update the physical MCU buzzer.
+
+    NEW AIRCRAFT:
+        one short beep
+
+    MONITOR:
+        repeating beep-beep
+
+    ANOMALY:
+        fast repeating alarm
+
+    NORMAL:
+        silent
+    """
+
+    global known_aircraft
+    global aircraft_baseline_initialized
+    global last_buzzer_mode
+
+    # --------------------------------------------------------
+    # Build current ICAO set
+    # --------------------------------------------------------
+
+    current_aircraft = set()
+
+    for aircraft in aircraft_list:
+
+        if not isinstance(
+            aircraft,
+            dict
+        ):
 
             continue
 
         icao = str(
-            icao
-        ).strip().upper()
+            aircraft.get(
+                "icao",
+                ""
+            )
+        ).upper().strip()
 
-        aviation = aircraft.get(
-            "aviation"
+        if icao:
+
+            current_aircraft.add(
+                icao
+            )
+
+    # --------------------------------------------------------
+    # First snapshot = baseline
+    #
+    # Aircraft already present when the application starts
+    # do not trigger a NEW AIRCRAFT beep.
+    # --------------------------------------------------------
+
+    if not aircraft_baseline_initialized:
+
+        known_aircraft = set(
+            current_aircraft
         )
 
-        if not isinstance(
-            aviation,
-            dict
+        aircraft_baseline_initialized = True
+
+        persistent_mode = determine_persistent_buzzer_mode(
+            aircraft_list
+        )
+
+        if persistent_mode != last_buzzer_mode:
+
+            if send_buzzer_mode(
+                persistent_mode
+            ):
+
+                last_buzzer_mode = persistent_mode
+
+        return
+
+    # --------------------------------------------------------
+    # Detect newly appearing aircraft
+    # --------------------------------------------------------
+
+    new_aircraft = (
+        current_aircraft -
+        known_aircraft
+    )
+
+    # Update known aircraft.
+    #
+    # If an aircraft disappears and later returns,
+    # it will be treated as a new detection.
+    # --------------------------------------------------------
+
+    known_aircraft = set(
+        current_aircraft
+    )
+
+    # --------------------------------------------------------
+    # Determine persistent alarm state
+    # --------------------------------------------------------
+
+    persistent_mode = determine_persistent_buzzer_mode(
+        aircraft_list
+    )
+
+    # --------------------------------------------------------
+    # NEW AIRCRAFT
+    #
+    # One short beep.
+    # --------------------------------------------------------
+
+    if new_aircraft:
+
+        print(
+            "[BUZZER] NEW AIRCRAFT: "
+            + ", ".join(
+                sorted(new_aircraft)
+            ),
+            flush=True
+        )
+
+        send_buzzer_mode(
+            BUZZER_NEW
+        )
+
+        # Do not change last_buzzer_mode here.
+        #
+        # On the next update, the persistent MONITOR,
+        # ANOMALY, or OFF state will be restored.
+
+        return
+
+    # --------------------------------------------------------
+    # PERSISTENT MONITOR / ANOMALY / OFF
+    #
+    # Only send when the state changes.
+    # --------------------------------------------------------
+
+    if persistent_mode != last_buzzer_mode:
+
+        if send_buzzer_mode(
+            persistent_mode
         ):
 
-            aviation = {}
-
-        lookup[icao] = aviation
-
-    return lookup
+            last_buzzer_mode = persistent_mode
 
 
 # ============================================================
 # DISTANCE / RADAR COORDINATES
 # ============================================================
 
-def calculate_xy(
-    latitude,
-    longitude
-):
+def calculate_xy(latitude, longitude):
     """
-    Convert latitude/longitude into approximate
-    local X/Y coordinates in kilometers.
+    Convert latitude/longitude into approximate local
+    X/Y coordinates in kilometers.
 
     X = east/west
     Y = north/south
     """
 
-    lat = safe_float(
-        latitude
-    )
+    lat = safe_float(latitude)
+    lon = safe_float(longitude)
 
-    lon = safe_float(
-        longitude
-    )
+    lat_diff = lat - RECEIVER_LAT
+    lon_diff = lon - RECEIVER_LON
 
-    lat_diff = (
-        lat
-        -
-        RECEIVER_LAT
-    )
-
-    lon_diff = (
-        lon
-        -
-        RECEIVER_LON
-    )
-
-    # Approximate km per degree
     km_per_lat = 111.32
 
     km_per_lon = (
-        111.32
-        *
+        111.32 *
         math.cos(
             math.radians(
                 RECEIVER_LAT
@@ -290,17 +474,8 @@ def calculate_xy(
         )
     )
 
-    x = (
-        lon_diff
-        *
-        km_per_lon
-    )
-
-    y = (
-        lat_diff
-        *
-        km_per_lat
-    )
+    x = lon_diff * km_per_lon
+    y = lat_diff * km_per_lat
 
     return x, y
 
@@ -309,13 +484,12 @@ def calculate_xy(
 # ALTITUDE NORMALIZATION
 # ============================================================
 
-def get_altitude_m(
-    aircraft
-):
+def get_altitude_m(aircraft):
     """
     Return altitude in meters.
 
     Priority:
+
         altitude_m
         altitude_ft
         altitude
@@ -341,32 +515,27 @@ def get_altitude_m(
                     "altitude_ft"
                 )
             )
-            *
-            0.3048
+            * 0.3048
         )
 
-    altitude = safe_float(
+    return safe_float(
         aircraft.get(
             "altitude",
-            0.0
+            0
         )
     )
-
-    # Fusion engine's generic altitude field is meters.
-    return altitude
 
 
 # ============================================================
 # SPEED NORMALIZATION
 # ============================================================
 
-def get_speed_mps(
-    aircraft
-):
+def get_speed_mps(aircraft):
     """
     Return speed in meters/second.
 
     Priority:
+
         speed_mps
         speed_kt
         speed
@@ -392,58 +561,15 @@ def get_speed_mps(
                     "speed_kt"
                 )
             )
-            *
-            0.514444
+            * 0.514444
         )
 
     return safe_float(
         aircraft.get(
             "speed",
-            0.0
+            0
         )
     )
-
-
-# ============================================================
-# AVIATION VALUE HELPER
-# ============================================================
-
-def aviation_value(
-    aviation,
-    key,
-    default="--"
-):
-    """
-    Safely retrieve a value from the aviation metadata.
-    """
-
-    if not isinstance(
-        aviation,
-        dict
-    ):
-
-        return default
-
-    value = aviation.get(
-        key
-    )
-
-    if value is None:
-
-        return default
-
-    if isinstance(
-        value,
-        str
-    ):
-
-        value = value.strip()
-
-        if not value:
-
-            return default
-
-    return value
 
 
 # ============================================================
@@ -452,23 +578,14 @@ def aviation_value(
 
 def convert_aircraft(
     aircraft,
-    aviation_lookup=None
+    aviation_lookup
 ):
     """
-    Convert fusion-engine aircraft data into the
-    format expected by the SkyGuardian dashboard.
+    Convert fusion-engine aircraft data into the format
+    expected by the SkyGuardian dashboard.
 
-    Aviation enrichment is merged from
-    skyguardian_aircraft.json using ICAO.
+    Aviation metadata is merged from skyguardian_aircraft.json.
     """
-
-    if aviation_lookup is None:
-
-        aviation_lookup = {}
-
-    # --------------------------------------------------------
-    # Position
-    # --------------------------------------------------------
 
     latitude = safe_float(
         aircraft.get(
@@ -487,10 +604,6 @@ def convert_aircraft(
         longitude
     )
 
-    # --------------------------------------------------------
-    # Flight data
-    # --------------------------------------------------------
-
     altitude_m = get_altitude_m(
         aircraft
     )
@@ -500,14 +613,12 @@ def convert_aircraft(
     )
 
     altitude_ft = (
-        altitude_m
-        /
+        altitude_m /
         0.3048
     )
 
     speed_kt = (
-        speed_mps
-        /
+        speed_mps /
         0.514444
     )
 
@@ -515,16 +626,12 @@ def convert_aircraft(
     # Identity
     # --------------------------------------------------------
 
-    icao = aircraft.get(
-        "icao",
-        ""
-    )
-
-    if icao:
-
-        icao = str(
-            icao
-        ).strip().upper()
+    icao = str(
+        aircraft.get(
+            "icao",
+            ""
+        )
+    ).upper()
 
     callsign = aircraft.get(
         "callsign",
@@ -535,8 +642,13 @@ def convert_aircraft(
     # Aviation enrichment
     # --------------------------------------------------------
 
-    aviation = aviation_lookup.get(
+    aviation_source = aviation_lookup.get(
         icao,
+        {}
+    )
+
+    aviation = aviation_source.get(
+        "aviation",
         {}
     )
 
@@ -547,65 +659,71 @@ def convert_aircraft(
 
         aviation = {}
 
-    # --------------------------------------------------------
-    # Support possible alternate aviation field names
-    # --------------------------------------------------------
-
-    registration = aviation_value(
-        aviation,
-        "registration"
+    registration = aviation.get(
+        "registration",
+        aviation_source.get(
+            "registration",
+            "--"
+        )
     )
 
-    country = aviation_value(
-        aviation,
-        "country"
+    country = aviation.get(
+        "country",
+        aviation_source.get(
+            "country",
+            "--"
+        )
     )
 
-    typecode = aviation_value(
-        aviation,
-        "typecode"
+    typecode = aviation.get(
+        "typecode",
+        aviation_source.get(
+            "typecode",
+            "--"
+        )
     )
 
-    aircraft_name = aviation_value(
-        aviation,
-        "aircraft_name"
+    aircraft_name = aviation.get(
+        "aircraft_name",
+        aviation_source.get(
+            "aircraft_name",
+            aviation_source.get(
+                "aircraft_type",
+                "--"
+            )
+        )
     )
 
-    # Current mapper uses "airline".
-    airline = aviation_value(
-        aviation,
-        "airline"
+    airline = aviation.get(
+        "airline",
+        aviation_source.get(
+            "airline",
+            "--"
+        )
     )
 
-    # Future/alternate mapper field.
-    operator = aviation_value(
-        aviation,
+    operator = aviation.get(
         "operator",
-        airline
-    )
-
-    # Future/alternate mapper field.
-    aircraft_type = aviation_value(
-        aviation,
-        "aircraft_type",
-        aircraft_name
+        aviation_source.get(
+            "operator",
+            airline
+        )
     )
 
     nearest_airport = aviation.get(
         "nearest_airport",
-        {}
+        aviation_source.get(
+            "nearest_airport",
+            {}
+        )
     )
 
-    if not isinstance(
-        nearest_airport,
-        dict
-    ):
-
-        nearest_airport = {}
-
-    route_context = aviation_value(
-        aviation,
-        "route_context"
+    route_context = aviation.get(
+        "route_context",
+        aviation_source.get(
+            "route_context",
+            "--"
+        )
     )
 
     # --------------------------------------------------------
@@ -759,57 +877,17 @@ def convert_aircraft(
 
     return {
 
-        # ====================================================
         # Identity
-        # ====================================================
-
         "icao": icao,
         "callsign": callsign,
 
-        # ====================================================
-        # Aviation enrichment
-        # ====================================================
-
-        "registration": registration,
-        "country": country,
-        "typecode": typecode,
-
-        # Frontend-friendly names
-        "aircraft_name": aircraft_name,
-        "aircraft_type": aircraft_type,
-
-        "airline": airline,
-        "operator": operator,
-
-        "nearest_airport": nearest_airport,
-        "route_context": route_context,
-
-        # Complete nested aviation object
-        "aviation": {
-            "registration": registration,
-            "country": country,
-            "typecode": typecode,
-            "aircraft_name": aircraft_name,
-            "aircraft_type": aircraft_type,
-            "airline": airline,
-            "operator": operator,
-            "nearest_airport": nearest_airport,
-            "route_context": route_context
-        },
-
-        # ====================================================
         # Position
-        # ====================================================
-
         "latitude": latitude,
         "longitude": longitude,
         "x": x,
         "y": y,
 
-        # ====================================================
         # Flight data
-        # ====================================================
-
         "altitude": altitude_m,
         "altitude_m": altitude_m,
         "altitude_ft": altitude_ft,
@@ -825,84 +903,36 @@ def convert_aircraft(
 
         "distance_nm": distance_nm,
 
-        # ====================================================
         # Fusion
-        # ====================================================
-
         "risk": final_score,
         "final_score": final_score,
         "risk_level": risk_level,
         "status": risk_level,
 
-        # ====================================================
         # Rule engine
-        # ====================================================
-
         "rule_score": rule_score,
 
-        "rule_reasons": aircraft.get(
-            "rule_reasons",
-            []
-        ),
-
-        # ====================================================
         # Machine learning
-        # ====================================================
-
         "ml_score": ml_score,
         "ml_anomaly_score": ml_score,
-
         "ml_class": ml_classification,
         "ml_classification": ml_classification,
-
         "ml_available": ml_available,
 
-        "ml_decision": aircraft.get(
-            "ml_decision"
-        ),
-
-        "ml_prediction": aircraft.get(
-            "ml_prediction"
-        ),
-
-        # ====================================================
-        # Fusion indicators
-        # ====================================================
-
-        "fusion_indicators": aircraft.get(
-            "fusion_indicators",
-            []
-        ),
-
-        # ====================================================
         # Explanation
-        # ====================================================
-
         "explanation": explanation,
         "anomaly_explanation": explanation,
 
-        # ====================================================
         # Trajectory features
-        # ====================================================
-
         "distance_from_previous_m": distance_previous,
-
         "time_delta_s": time_delta,
-
         "altitude_change_m": altitude_change,
-
         "speed_change_mps": speed_change,
-
         "heading_change_deg": heading_change,
-
         "calculated_speed_mps": calculated_speed,
-
         "acceleration_mps2": acceleration,
 
-        # ====================================================
         # Tracker state
-        # ====================================================
-
         "position_updated": aircraft.get(
             "position_updated",
             True
@@ -915,13 +945,28 @@ def convert_aircraft(
             )
         ),
 
-        # ====================================================
-        # Timestamp
-        # ====================================================
+        # Aviation enrichment
+        "registration": registration,
+        "country": country,
+        "typecode": typecode,
+        "aircraft_name": aircraft_name,
+        "aircraft_type": aircraft_name,
+        "airline": airline,
+        "operator": operator,
+        "nearest_airport": nearest_airport,
+        "route_context": route_context,
 
-        "timestamp": aircraft.get(
-            "timestamp"
-        )
+        "aviation": {
+            "registration": registration,
+            "country": country,
+            "typecode": typecode,
+            "aircraft_name": aircraft_name,
+            "aircraft_type": aircraft_name,
+            "airline": airline,
+            "operator": operator,
+            "nearest_airport": nearest_airport,
+            "route_context": route_context
+        }
     }
 
 
@@ -929,14 +974,9 @@ def convert_aircraft(
 # BUILD COMPLETE DASHBOARD PAYLOAD
 # ============================================================
 
-def build_dashboard_payload(
-    data,
-    aviation_data=None
-):
+def build_dashboard_payload(data):
     """
     Convert fusion-engine JSON into the WebUI payload.
-
-    Aviation metadata is merged from the mapper output.
     """
 
     if data is None:
@@ -959,19 +999,9 @@ def build_dashboard_payload(
 
         aircraft_list = []
 
-    # --------------------------------------------------------
-    # Build aviation lookup
-    # --------------------------------------------------------
-
-    aviation_lookup = build_aviation_lookup(
-        aviation_data
-    )
+    aviation_lookup = read_aviation_data()
 
     dashboard_aircraft = []
-
-    # --------------------------------------------------------
-    # Convert every fusion aircraft
-    # --------------------------------------------------------
 
     for aircraft in aircraft_list:
 
@@ -1019,11 +1049,9 @@ def build_dashboard_payload(
 # SEND DATA TO WEB UI
 # ============================================================
 
-def send_dashboard_update(
-    payload
-):
+def send_dashboard_update(payload):
     """
-    Send the latest aircraft state to the frontend.
+    Send latest aircraft state to frontend.
     """
 
     try:
@@ -1051,9 +1079,11 @@ def send_dashboard_update(
 
 def main():
     """
-    Continuously read fusion results and aviation
-    enrichment, then update the SkyGuardian dashboard.
+    Continuously read fusion results, update the WebUI,
+    and control the physical MCU buzzer.
     """
+
+    global last_buzzer_mode
 
     print()
     print("Fusion input:")
@@ -1076,9 +1106,23 @@ def main():
     )
 
     print()
+    print("MCU buzzer:")
+    print("Digital pin 8")
+
+    print()
     print("-" * 70)
     print("Waiting for realtime fusion data...")
     print("-" * 70)
+
+    # --------------------------------------------------------
+    # Start buzzer OFF
+    # --------------------------------------------------------
+
+    if send_buzzer_mode(
+        BUZZER_OFF
+    ):
+
+        last_buzzer_mode = BUZZER_OFF
 
     last_timestamp = None
 
@@ -1087,12 +1131,12 @@ def main():
         try:
 
             # ------------------------------------------------
-            # Read fusion data
+            # Read latest fusion data
             # ------------------------------------------------
 
-            fusion_data = read_fusion_results()
+            data = read_fusion_results()
 
-            if fusion_data is None:
+            if data is None:
 
                 print(
                     "[WEBUI] Waiting for fusion results...",
@@ -1106,18 +1150,44 @@ def main():
                 continue
 
             # ------------------------------------------------
-            # Read aviation enrichment
+            # Extract aircraft list
             # ------------------------------------------------
 
-            aviation_data = read_aviation_data()
+            aircraft_list = data.get(
+                "aircraft",
+                []
+            )
+
+            if not isinstance(
+                aircraft_list,
+                list
+            ):
+
+                aircraft_list = []
+
+            # ------------------------------------------------
+            # Update physical buzzer
+            # ------------------------------------------------
+
+            try:
+
+                update_buzzer(
+                    aircraft_list
+                )
+
+            except Exception as e:
+
+                print(
+                    f"[BUZZER] Update error: {e}",
+                    flush=True
+                )
 
             # ------------------------------------------------
             # Build dashboard payload
             # ------------------------------------------------
 
             payload = build_dashboard_payload(
-                fusion_data,
-                aviation_data
+                data
             )
 
             # ------------------------------------------------
@@ -1142,7 +1212,6 @@ def main():
             )
 
             risk_counts = {
-
                 "NORMAL": 0,
                 "MONITOR": 0,
                 "ANOMALY": 0
@@ -1162,29 +1231,23 @@ def main():
 
                 if risk in risk_counts:
 
-                    risk_counts[
-                        risk
-                    ] += 1
+                    risk_counts[risk] += 1
 
             # ------------------------------------------------
-            # Print when timestamp changes
+            # Print aircraft state
             # ------------------------------------------------
 
             if timestamp != last_timestamp:
 
                 print(
-                    f"[WEBUI] "
-                    f"Aircraft: {aircraft_count:3d} | "
+                    f"[WEBUI] Aircraft: {aircraft_count:3d} | "
                     f"Normal: {risk_counts['NORMAL']:3d} | "
                     f"Monitor: {risk_counts['MONITOR']:3d} | "
                     f"Anomaly: {risk_counts['ANOMALY']:3d} | "
+                    f"Buzzer: {last_buzzer_mode} | "
                     f"Sent: {sent}",
                     flush=True
                 )
-
-                # ------------------------------------------------
-                # Print aviation information for debugging
-                # ------------------------------------------------
 
                 for aircraft in payload.get(
                     "aircraft",
@@ -1193,14 +1256,11 @@ def main():
 
                     print(
                         f"[WEBUI] "
-                        f"{aircraft.get('callsign', ''):<8} "
-                        f"{aircraft.get('icao', '')} | "
-                        f"REG="
-                        f"{aircraft.get('registration', '--')} | "
-                        f"TYPE="
-                        f"{aircraft.get('typecode', '--')} | "
-                        f"AIRLINE="
-                        f"{aircraft.get('airline', '--')}",
+                        f"{str(aircraft.get('callsign', '--')):<8} "
+                        f"{str(aircraft.get('icao', '--')):<6} "
+                        f"REG={str(aircraft.get('registration', '--')):<8} "
+                        f"TYPE={str(aircraft.get('typecode', '--')):<5} "
+                        f"AIRLINE={str(aircraft.get('airline', '--'))}",
                         flush=True
                     )
 
@@ -1218,6 +1278,16 @@ def main():
                 "SkyGuardian dashboard stopped.",
                 flush=True
             )
+
+            try:
+
+                send_buzzer_mode(
+                    BUZZER_OFF
+                )
+
+            except Exception:
+
+                pass
 
             break
 
@@ -1242,9 +1312,7 @@ if __name__ == "__main__":
     try:
 
         print()
-        print(
-            "Starting SkyGuardian..."
-        )
+        print("Starting SkyGuardian...")
         print()
 
         App.run(
@@ -1254,6 +1322,7 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
 
         print()
+
         print(
             "SkyGuardian stopped.",
             flush=True
