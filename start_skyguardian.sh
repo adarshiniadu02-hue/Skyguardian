@@ -164,7 +164,14 @@ echo "============================================================"
 # ------------------------------------------------------------
 # Open Chromium dashboard
 # ------------------------------------------------------------
+echo "Dashboard: http://${IP}:7000"
+echo "Waiting for dashboard..."
 
+while ! nc -z "$IP" 7000 2>/dev/null; do
+    sleep 1
+done
+
+echo "Dashboard is ready!"
 chromium "http://${IP}:7000" &
 
 
