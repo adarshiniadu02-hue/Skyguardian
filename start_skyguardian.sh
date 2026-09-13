@@ -42,15 +42,6 @@ fi
 
 tmux new-session -d -s skyguardian -n pipeline
 
-
-# ------------------------------------------------------------
-# Store stable pane IDs
-#
-# IMPORTANT:
-# We use pane IDs instead of pane numbers because tmux can
-# renumber panes after split-window operations.
-# ------------------------------------------------------------
-
 P0=$(tmux display-message -t skyguardian:pipeline -p '#{pane_id}')
 
 
@@ -112,6 +103,16 @@ tmux send-keys -t "$P5" \
 "cd '$PROJECT' && arduino-app-cli app start '$PROJECT'" C-m
 
 
+# ============================================================
+# JSON WATCH
+# ============================================================
+
+P6=$(tmux split-window -v -t "$P5" -P -F '#{pane_id}')
+
+tmux send-keys -t "$P6" \
+"cd '$PROJECT' && watch -n 2 'python3 -m json.tool data/live/skyguardian_aircraft.json'" C-m
+
+
 # ------------------------------------------------------------
 # Select READSB pane
 # ------------------------------------------------------------
@@ -119,10 +120,20 @@ tmux send-keys -t "$P5" \
 tmux select-pane -t "$P0"
 
 
+# ------------------------------------------------------------
+# Get UNO Q IP address
+# ------------------------------------------------------------
+
+IP=$(hostname -I | awk '{print $1}')
+
 echo
 echo "============================================================"
 echo " SKYGUARDIAN STARTED"
 echo "============================================================"
+echo
+echo "Dashboard:"
+echo
+echo "  http://${IP}:7000"
 echo
 echo "Pipeline:"
 echo
@@ -138,12 +149,23 @@ echo "  FUSION"
 echo "     ↓"
 echo "  WEBUI + MCU BUZZER"
 echo
+echo "  JSON WATCH"
+echo "     ↓"
+echo "  skyguardian_aircraft.json"
+echo
 echo "Detach:"
 echo "  Ctrl+B, then D"
 echo
 echo "Stop:"
 echo "  ./stop_skyguardian.sh"
 echo "============================================================"
+
+
+# ------------------------------------------------------------
+# Open Chromium dashboard
+# ------------------------------------------------------------
+
+chromium "http://${IP}:7000" &
 
 
 # ------------------------------------------------------------
